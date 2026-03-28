@@ -1017,7 +1017,7 @@ Select a goal above to tune the analysis."
           <div class="score-experimental" id="score-experimental" style="font-size: 9px; color: #f0883e; margin-top: 4px; font-style: italic;">⚠️ Experimental scoring</div>
           
           <!-- Feedback Collection UI -->
-          <div class="feedback-section" id="feedback-section" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: none;">
+          <div class="feedback-section" id="feedback-section" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
               <div style="font-size: 11px; color: var(--text-muted);">Was this helpful?</div>
               <div id="vote-stats" style="font-size: 10px; color: var(--text-muted);"></div>
@@ -2475,13 +2475,7 @@ function hashPrompt(text) {
 
 // Update feedback UI - Integrated with VotingManager
 function updateFeedbackUI(text) {
-  if (!text.trim()) {
-    feedbackSection.style.display = 'none';
-    return;
-  }
-  
-  feedbackSection.style.display = 'block';
-  
+  // Always show feedback section - buttons work even without text
   // Use the new VotingManager system
   updateVoteButtons();
 }
