@@ -953,6 +953,19 @@ Select a goal above to tune the analysis."
               <button class="feedback-btn" id="feedback-down" title="Score was wrong" style="flex: 1; min-width: 60px; justify-content: center;">👎 <span style="font-size: 10px;">Bad</span></button>
               <button class="feedback-btn secondary" id="feedback-ollama" title="LLM evaluation" style="flex: 1; min-width: 70px; justify-content: center;">🧠 Judge</button>
             </div>
+            
+            <!-- Judge Context Input -->
+            <div id="judge-context-section" style="margin-top: 10px; display: none;">
+              <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px;">
+                📝 Judge Context (optional context to include in evaluation)
+              </div>
+              <textarea 
+                id="judge-context-input" 
+                placeholder="Add context for the judge (e.g., target audience, specific requirements, constraints...)"
+                style="width: 100%; min-height: 50px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; font-size: 11px; resize: vertical; font-family: inherit;"
+              ></textarea>
+            </div>
+            
             <div id="ollama-status" style="font-size: 10px; color: var(--text-muted); margin-top: 6px; display: none;"></div>
             <div id="ollama-result" style="margin-top: 8px; display: none;"></div>
           </div>
@@ -2174,8 +2187,30 @@ runAnalysis = function() {
   hlLayer.scrollTop  = editor.scrollTop;
   hlLayer.scrollLeft = editor.scrollLeft;
   
-  // Score (show primary goal score)
-  const scoreData = computeScore(text, slots);
+  // Score (show average of active goals in compare mode, or primary goal score in single mode)
+  let scoreData;
+  if (compareMode && activeGoals.size > 1) {
+    // Calculate average score across all active goals
+    let totalScore = 0;
+    let validGoals = 0;
+    for (const goal of activeGoals) {
+      const goalSlots = annotate(text, goal);
+      const goalScoreData = computeScore(text, goalSlots);
+      if (goalScoreData) {
+        totalScore += goalScoreData.score;
+        validGoals++;
+      }
+    }
+    const avgScore = validGoals > 0 ? Math.round(totalScore / validGoals) : 0;
+    // Create a scoreData object with the average score but keep other metrics from primary
+    scoreData = computeScore(text, slots);
+    if (scoreData) {
+      scoreData.score = avgScore;
+      scoreData.averageMode = true;
+    }
+  } else {
+    scoreData = computeScore(text, slots);
+  }
   updateScore(scoreData, primaryGoal);
   
   // Combined breakdown from all active goals
@@ -2563,6 +2598,10 @@ async function analyzeWithOllama(prompt, goal) {
   };
   const rubric = rubrics[goal] || rubrics.efficient;
 
+  // Get judge context if provided
+  const judgeContext = document.getElementById('judge-context-input')?.value?.trim();
+  const contextSection = judgeContext ? `\n\n## Additional Context:\n${judgeContext}` : '';
+
   const systemPrompt = `You are a prompt engineering expert. ${rubric.criteria}
 Rate each dimension (${rubric.dims.join(', ')}) from 1-10, give an overall 1-100 score, and one sentence of reasoning.
 Respond ONLY with valid JSON: {"dimensions":{"dim":score,...},"overall":score,"reasoning":"..."}`;
@@ -2573,7 +2612,7 @@ Respond ONLY with valid JSON: {"dimensions":{"dim":score,...},"overall":score,"r
     body: JSON.stringify({
       model:  selectedModel,
       system: systemPrompt,
-      prompt: `Evaluate this prompt (goal: ${goal}):\n\n${prompt}`,
+      prompt: `Evaluate this prompt (goal: ${goal}):\n\n${prompt}${contextSection}`,
       stream: false,
       format: 'json'
     }),
@@ -2589,10 +2628,19 @@ async function checkOllamaAvailability() {
   return ollamaConnected;
 }
 
+const judgeContextSection = document.getElementById('judge-context-section');
+const judgeContextInput = document.getElementById('judge-context-input');
+
+// Toggle judge context input visibility when Judge button is clicked
 feedbackOllama.addEventListener('click', async () => {
   if (feedbackOllama.dataset.judgeMode) return; // LLMJudge onclick handler takes over
   const text = editor.value;
   if (!text.trim()) return;
+  
+  // Show judge context input
+  if (judgeContextSection) {
+    judgeContextSection.style.display = 'block';
+  }
   
   feedbackOllama.disabled = true;
   ollamaStatus.style.display = 'block';
@@ -2753,14 +2801,15 @@ updateScore = function(data, goal) {
   }
   
   // Show main score
-  const { score } = data;
+  const { score, averageMode } = data;
   const offset = CIRCUMFERENCE - (score / 100) * CIRCUMFERENCE;
   scoreProgress.style.strokeDashoffset = offset;
   scoreProgress.style.stroke = score >= 70 ? '#3fb950' : score >= 45 ? '#f0883e' : '#f85149';
   scoreNumber.textContent = score;
   
   const [lbl, desc] = scoreLabel(score);
-  scoreLabel_el.textContent = lbl;
+  // Show "Average" label when in compare mode with multiple goals
+  scoreLabel_el.textContent = averageMode ? `${lbl} (Average)` : lbl;
   scoreDesc.textContent = desc;
   
   // Show confidence interval
@@ -3248,12 +3297,17 @@ class LLMJudge {
       `${i + 1}. ${c.name} (${Math.round(c.weight * 100)}%): ${c.desc}`
     ).join('\n');
 
+    // Get judge context if provided
+    const judgeContextInput = document.getElementById('judge-context-input');
+    const judgeContext = judgeContextInput?.value?.trim();
+    const contextSection = judgeContext ? `\n\n## Additional Context for Evaluation:\n${judgeContext}` : '';
+
     return `You are an expert prompt engineer. Evaluate this prompt for ${rubric.name.toLowerCase()}.
 
 ## Prompt:
 """
 ${prompt}
-"""
+"""${contextSection}
 
 ## Evaluation Criteria:
 ${criteriaText}
@@ -3474,6 +3528,12 @@ function updateFeedbackSection() {
       if (!prompt) return;
 
       const ollamaResult = document.getElementById('ollama-result');
+      const judgeContextSection = document.getElementById('judge-context-section');
+      
+      // Show judge context input
+      if (judgeContextSection) {
+        judgeContextSection.style.display = 'block';
+      }
 
       ollamaBtn.disabled = true;
       ollamaBtn.textContent = '🧠 Analyzing...';
