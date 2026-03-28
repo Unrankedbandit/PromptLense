@@ -872,6 +872,33 @@
       color: #58a6ff;
     }
 
+    /* ── OLLAMA LOAD/UNLOAD BUTTONS ── */
+    .ollama-model-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .ollama-model-btn:hover { background: var(--surface-3); border-color: var(--text-muted); }
+    .ollama-model-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ollama-model-btn.load-btn { color: #3fb950; border-color: rgba(63,185,80,0.4); }
+    .ollama-model-btn.load-btn:hover { background: rgba(63,185,80,0.1); }
+    .ollama-model-btn.unload-btn { color: #f85149; border-color: rgba(248,81,73,0.4); }
+    .ollama-model-btn.unload-btn:hover { background: rgba(248,81,73,0.1); }
+    .ollama-mem-info {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .ollama-mem-info .mem-ok   { color: #3fb950; }
+    .ollama-mem-info .mem-warn { color: #f0883e; }
+    .ollama-mem-info .mem-bad  { color: #f85149; }
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -889,6 +916,9 @@
     <span class="ollama-dot checking" id="ollama-dot"></span>
     <span id="ollama-header-label">Checking Ollama…</span>
     <select id="ollama-model-select" style="display:none" title="Select local model"></select>
+    <span id="ollama-mem-info" class="ollama-mem-info" style="display:none"></span>
+    <button id="load-model-btn" class="ollama-model-btn load-btn" style="display:none" title="Load selected model into memory">Load</button>
+    <button id="unload-model-btn" class="ollama-model-btn unload-btn" style="display:none" title="Unload model from memory">Unload</button>
   </div>
 
   <div class="goal-selector">
@@ -2511,12 +2541,18 @@ feedbackDown.addEventListener('click', () => {
 
 const OLLAMA_BASE = 'http://localhost:11434';
 let ollamaConnected = false;
-let ollamaModels    = [];
+let ollamaModels    = [];   // string[] - model names
+let ollamaModelData = [];   // [{name, size}] - full model info
 let selectedModel   = '';
+let modelLoaded     = false;  // true if WE have loaded the model into Ollama
+let systemRamGB     = null;   // approximate total device RAM
 
 const ollamaDot         = document.getElementById('ollama-dot');
 const ollamaHeaderLabel = document.getElementById('ollama-header-label');
 const ollamaModelSelect = document.getElementById('ollama-model-select');
+const ollamaMemInfo     = document.getElementById('ollama-mem-info');
+const loadModelBtn      = document.getElementById('load-model-btn');
+const unloadModelBtn    = document.getElementById('unload-model-btn');
 
 function setOllamaStatus(state, label) {
   ollamaDot.className = `ollama-dot ${state}`;
@@ -2535,15 +2571,154 @@ function getFileProtocolTip() {
     </div>`;
 }
 
+function formatGB(bytes) {
+  if (!bytes) return '?';
+  return (bytes / 1073741824).toFixed(1) + ' GB';
+}
+
+function getSystemRamGB() {
+  // navigator.deviceMemory gives approximate total device RAM (max 8 for privacy)
+  if (navigator.deviceMemory) return navigator.deviceMemory;
+  return null;
+}
+
+function updateMemoryInfo() {
+  if (!ollamaConnected || !ollamaMemInfo) return;
+  const modelName = ollamaModelSelect.value;
+  if (!modelName) {
+    ollamaMemInfo.style.display = 'none';
+    return;
+  }
+  const modelInfo = ollamaModelData.find(m => m.name === modelName);
+  const modelGB = modelInfo ? modelInfo.size / 1073741824 : null;
+  const ramGB   = systemRamGB;
+
+  let html = '';
+  if (modelGB !== null) {
+    const modelStr = modelGB.toFixed(1) + ' GB';
+    if (ramGB !== null) {
+      const ratio = modelGB / ramGB;
+      let cls = 'mem-ok';
+      if (ratio > 0.9) cls = 'mem-bad';
+      else if (ratio > 0.6) cls = 'mem-warn';
+      html = `Model: <span class="${cls}">${modelStr}</span> / RAM: ~${ramGB} GB`;
+    } else {
+      html = `Model: ${modelStr}`;
+    }
+  } else if (ramGB !== null) {
+    html = `RAM: ~${ramGB} GB`;
+  }
+
+  if (html) {
+    ollamaMemInfo.innerHTML = html;
+    ollamaMemInfo.style.display = 'inline';
+  } else {
+    ollamaMemInfo.style.display = 'none';
+  }
+}
+
+function updateLoadButtons() {
+  if (!ollamaConnected) {
+    loadModelBtn.style.display = 'none';
+    unloadModelBtn.style.display = 'none';
+    return;
+  }
+  const hasSelection = !!ollamaModelSelect.value;
+  loadModelBtn.style.display   = (!modelLoaded && hasSelection) ? 'inline-block' : 'none';
+  unloadModelBtn.style.display = modelLoaded ? 'inline-block' : 'none';
+}
+
+async function loadSelectedModel() {
+  const model = ollamaModelSelect.value;
+  if (!model) return;
+  setOllamaStatus('checking', 'Loading model…');
+  loadModelBtn.disabled = true;
+  try {
+    // Send a no-op generate request with keep_alive=-1 to load without inference
+    const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: '', keep_alive: -1 }),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    selectedModel = model;
+    modelLoaded = true;
+    localStorage.setItem('promptLens_loadedModel', model);
+    setOllamaStatus('connected', 'Ollama');
+    console.log(`PromptLens: loaded model "${model}"`);
+  } catch (e) {
+    setOllamaStatus('disconnected', 'Load failed');
+    console.error('Model load error:', e.message);
+  } finally {
+    loadModelBtn.disabled = false;
+    updateLoadButtons();
+  }
+}
+
+async function unloadSelectedModel() {
+  const model = selectedModel || ollamaModelSelect.value;
+  if (!model) return;
+  setOllamaStatus('checking', 'Unloading…');
+  unloadModelBtn.disabled = true;
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: '', keep_alive: 0 }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    modelLoaded = false;
+    selectedModel = '';
+    localStorage.removeItem('promptLens_loadedModel');
+    setOllamaStatus('connected', 'Ollama');
+    console.log(`PromptLens: unloaded model "${model}"`);
+  } catch (e) {
+    setOllamaStatus('connected', 'Ollama');
+    console.warn('Model unload error:', e.message);
+  } finally {
+    unloadModelBtn.disabled = false;
+    updateLoadButtons();
+  }
+}
+
+async function unloadPreviousSessionModel() {
+  // Unload whatever model we had loaded last session
+  const prev = localStorage.getItem('promptLens_loadedModel');
+  if (!prev) return;
+  try {
+    await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: prev, prompt: '', keep_alive: 0 }),
+      signal: AbortSignal.timeout(8000)
+    });
+    localStorage.removeItem('promptLens_loadedModel');
+    console.log(`PromptLens: unloaded previous session model "${prev}"`);
+  } catch (e) {
+    localStorage.removeItem('promptLens_loadedModel');
+  }
+}
+
 async function initOllama() {
   setOllamaStatus('checking', 'Checking Ollama…');
+
+  // Detect system RAM once
+  if (systemRamGB === null) {
+    systemRamGB = getSystemRamGB();
+  }
+
   try {
     const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
       signal: AbortSignal.timeout(2500)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    ollamaModels = (data.models || []).map(m => m.name);
+
+    // Store full model objects (name + size in bytes)
+    ollamaModelData = (data.models || []).map(m => ({ name: m.name, size: m.size || 0 }));
+    ollamaModels    = ollamaModelData.map(m => m.name);
 
     if (ollamaModels.length === 0) {
       setOllamaStatus('disconnected', 'Ollama: no models');
@@ -2551,19 +2726,25 @@ async function initOllama() {
       return;
     }
 
-    // Populate model selector
-    ollamaModelSelect.innerHTML = ollamaModels.map(m =>
-      `<option value="${m}">${m.replace(':latest', '')}</option>`
-    ).join('');
+    // Populate model selector — blank default first, then models with sizes
+    ollamaModelSelect.innerHTML =
+      '<option value="">— select model —</option>' +
+      ollamaModelData.map(m => {
+        const sizeStr = m.size ? ` (${(m.size / 1073741824).toFixed(1)} GB)` : '';
+        const label   = m.name.replace(':latest', '') + sizeStr;
+        return `<option value="${m.name}">${label}</option>`;
+      }).join('');
     ollamaModelSelect.style.display = 'block';
 
-    // Prefer a sensible default
-    const preferred = ['llama3.2', 'llama3', 'llama3.1', 'mistral', 'phi3', 'gemma2'];
-    selectedModel = ollamaModels.find(m => preferred.some(p => m.startsWith(p))) || ollamaModels[0];
-    ollamaModelSelect.value = selectedModel;
+    // Default selection is blank — user must choose explicitly
+    selectedModel = '';
+    ollamaModelSelect.value = '';
 
     ollamaConnected = true;
-    setOllamaStatus('connected', `Ollama`);
+    setOllamaStatus('connected', 'Ollama');
+    loadModelBtn.style.display   = 'none'; // hidden until user picks a model
+    unloadModelBtn.style.display = 'none';
+    updateMemoryInfo();
     console.log(`PromptLens: Ollama connected. Models: ${ollamaModels.join(', ')}`);
 
   } catch (e) {
@@ -2584,10 +2765,50 @@ async function initOllama() {
 
 ollamaModelSelect.addEventListener('change', () => {
   selectedModel = ollamaModelSelect.value;
+  modelLoaded = false; // selection changed, model is no longer confirmed loaded
+  updateMemoryInfo();
+  updateLoadButtons();
+});
+
+loadModelBtn.addEventListener('click', loadSelectedModel);
+unloadModelBtn.addEventListener('click', unloadSelectedModel);
+
+// Unload model when page closes
+window.addEventListener('beforeunload', () => {
+  const model = selectedModel;
+  if (model && modelLoaded) {
+    // Use sendBeacon for reliability on page close
+    const body = JSON.stringify({ model, prompt: '', keep_alive: 0 });
+    navigator.sendBeacon
+      ? navigator.sendBeacon(`${OLLAMA_BASE}/api/generate`, new Blob([body], { type: 'application/json' }))
+      : fetch(`${OLLAMA_BASE}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+    localStorage.removeItem('promptLens_loadedModel');
+  }
 });
 
 async function analyzeWithOllama(prompt, goal) {
-  if (!ollamaConnected || !selectedModel) throw new Error('Ollama not connected');
+  if (!ollamaConnected) throw new Error('Ollama not connected');
+  if (!selectedModel) throw new Error('No model selected — pick a model and click Load first');
+
+  // Auto-load model if not already loaded
+  if (!modelLoaded) {
+    setOllamaStatus('checking', 'Loading model…');
+    try {
+      const loadRes = await fetch(`${OLLAMA_BASE}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: selectedModel, prompt: '', keep_alive: -1 }),
+        signal: AbortSignal.timeout(30000)
+      });
+      if (!loadRes.ok) throw new Error(`HTTP ${loadRes.status}`);
+      modelLoaded = true;
+      localStorage.setItem('promptLens_loadedModel', selectedModel);
+      setOllamaStatus('connected', 'Ollama');
+      updateLoadButtons();
+    } catch (e) {
+      throw new Error(`Failed to load model: ${e.message}`);
+    }
+  }
 
   const rubrics = {
     efficient:    { dims: ['clarity','conciseness','specificity'],          criteria: 'Evaluate how clear, concise, and specific this prompt is for efficient LLM output.' },
@@ -3171,7 +3392,8 @@ updateGoalButtons();
 updateFeedbackCounts();
 runAnalysis();
 updateVoteButtons(); // Initialize vote button states
-initOllama(); // async — updates header dot when done
+// On startup: unload any model left loaded from a previous session, then init
+unloadPreviousSessionModel().finally(() => initOllama());
 
 // ─────────────────────────────────────────────
 //  LLM-AS-JUDGE INTEGRATION WITH BIAS MITIGATION
