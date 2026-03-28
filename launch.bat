@@ -7,11 +7,11 @@ cd /d "%~dp0"
 netstat -ano 2>nul | findstr /R ":%PORT% .*LISTENING" >nul
 if %errorlevel% == 0 goto open
 
-:: ── Find Python ──────────────────────────────────────────────────────────────
+:: ── Find Python (prefer 'py' launcher) ─────────────────────────────────────────
 set PYTHON=
-where python >nul 2>&1 && set PYTHON=python
+where py >nul 2>&1 && set PYTHON=py
 if not defined PYTHON (
-    where py >nul 2>&1 && set PYTHON=py
+    where python >nul 2>&1 && set PYTHON=python
 )
 if not defined PYTHON (
     echo PromptLens: Python not found.
