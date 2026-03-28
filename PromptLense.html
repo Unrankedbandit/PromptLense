@@ -955,7 +955,7 @@ Select a goal above to tune the analysis."
             </div>
             
             <!-- Judge Context Input -->
-            <div id="judge-context-section" style="margin-top: 10px; display: none;">
+            <div id="judge-context-section" style="margin-top: 10px;">
               <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px;">
                 📝 Judge Context (optional context to include in evaluation)
               </div>
@@ -2628,19 +2628,10 @@ async function checkOllamaAvailability() {
   return ollamaConnected;
 }
 
-const judgeContextSection = document.getElementById('judge-context-section');
-const judgeContextInput = document.getElementById('judge-context-input');
-
-// Toggle judge context input visibility when Judge button is clicked
 feedbackOllama.addEventListener('click', async () => {
   if (feedbackOllama.dataset.judgeMode) return; // LLMJudge onclick handler takes over
   const text = editor.value;
   if (!text.trim()) return;
-  
-  // Show judge context input
-  if (judgeContextSection) {
-    judgeContextSection.style.display = 'block';
-  }
   
   feedbackOllama.disabled = true;
   ollamaStatus.style.display = 'block';
@@ -3528,12 +3519,6 @@ function updateFeedbackSection() {
       if (!prompt) return;
 
       const ollamaResult = document.getElementById('ollama-result');
-      const judgeContextSection = document.getElementById('judge-context-section');
-      
-      // Show judge context input
-      if (judgeContextSection) {
-        judgeContextSection.style.display = 'block';
-      }
 
       ollamaBtn.disabled = true;
       ollamaBtn.textContent = '🧠 Analyzing...';
