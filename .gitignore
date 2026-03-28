@@ -1,0 +1,22 @@
+# Logs
+*.log
+server.log
+
+# Debug files
+debug/*.log
+debug/.claude/settings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp

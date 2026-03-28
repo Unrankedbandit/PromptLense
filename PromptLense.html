@@ -1,0 +1,3760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptLens — Prompt Structure Analyzer</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-2: #21262d;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --text-bright: #f0f6fc;
+      --accent: #58a6ff;
+
+      --filler-bg: rgba(248, 81, 73, 0.18);
+      --filler-underline: #f85149;
+      --vague-bg: rgba(255, 166, 0, 0.18);
+      --vague-underline: #f0883e;
+      --high-impact-bg: rgba(63, 185, 80, 0.18);
+      --high-impact-border: rgba(63, 185, 80, 0.5);
+      --context-bg: rgba(88, 166, 255, 0.14);
+      --context-border: rgba(88, 166, 255, 0.4);
+      --constraint-bg: rgba(188, 140, 255, 0.18);
+      --constraint-border: rgba(188, 140, 255, 0.5);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: -0.4px;
+    }
+    .logo span { color: var(--accent); }
+
+    .tagline {
+      font-size: 11px;
+      color: var(--text-muted);
+      border-left: 1px solid var(--border);
+      padding-left: 14px;
+    }
+
+    .goal-selector {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .goal-selector label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 600;
+    }
+
+    select {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* ── GOAL TOGGLES ── */
+    .goal-toggles {
+      display: flex;
+      gap: 4px;
+    }
+
+    .goal-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s;
+      opacity: 0.5;
+    }
+
+    .goal-btn:hover {
+      border-color: var(--accent);
+      opacity: 0.8;
+    }
+
+    .goal-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+      opacity: 1;
+    }
+
+    .compare-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s;
+      margin-left: 4px;
+    }
+
+    .compare-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface-2);
+    }
+
+    .compare-btn.active {
+      background: #3fb950;
+      border-color: #3fb950;
+      color: var(--bg);
+    }
+
+    .copy-json-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s;
+      margin-left: 4px;
+    }
+
+    .copy-json-btn:hover {
+      border-color: #58a6ff;
+      background: var(--surface-2);
+    }
+
+    .copy-json-btn.copied {
+      background: #388bfd;
+      border-color: #388bfd;
+      color: #fff;
+    }
+
+    /* ── FEEDBACK BUTTONS ── */
+    .feedback-section {
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .feedback-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    
+    .feedback-btn.secondary {
+      font-size: 11px;
+    }
+
+    .feedback-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+
+    .feedback-btn.active-up {
+      background: rgba(63, 185, 80, 0.2);
+      border-color: #3fb950;
+      color: #3fb950;
+    }
+
+    .feedback-btn.active-down {
+      background: rgba(248, 81, 73, 0.2);
+      border-color: #f85149;
+      color: #f85149;
+    }
+
+    .feedback-btn.secondary {
+      background: transparent;
+      font-size: 11px;
+      padding: 6px 10px;
+    }
+
+    .feedback-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .confidence-display {
+      animation: fadeIn 0.3s ease;
+    }
+
+    .confidence-high { background: rgba(63, 185, 80, 0.2); color: #3fb950; }
+    .confidence-medium { background: rgba(255, 166, 0, 0.2); color: #f0883e; }
+    .confidence-low { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+
+    /* ── OLLAMA RESULT DISPLAY ── */
+    .ollama-result-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 11px;
+    }
+
+    .ollama-score-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .ollama-score-label { color: var(--text-muted); }
+    .ollama-score-value { font-weight: 600; color: var(--text-bright); }
+
+    .ollama-reasoning {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-style: italic;
+      line-height: 1.4;
+    }
+
+    /* ── MULTI-GOAL COMPARISON VIEW ── */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .comparison-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .comparison-item:hover {
+      border-color: var(--accent);
+    }
+
+    .comparison-item.active {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, 0.1);
+    }
+
+    .comparison-goal {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .comparison-score {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .comparison-score.excellent { color: #3fb950; }
+    .comparison-score.strong { color: #58a6ff; }
+    .comparison-score.moderate { color: #f0883e; }
+    .comparison-score.weak { color: #f85149; }
+
+    .comparison-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── CROSS-GOAL ANALYSIS ── */
+    .cross-goal-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .cross-goal-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .overlap-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 11px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .overlap-item:last-child {
+      border-bottom: none;
+    }
+
+    .overlap-goals {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .overlap-goal-tag {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--text-muted);
+    }
+
+    .overlap-goal-tag.efficient { background: rgba(63, 185, 80, 0.2); color: #3fb950; }
+    .overlap-goal-tag.creative { background: rgba(188, 140, 255, 0.2); color: #bc8cff; }
+    .overlap-goal-tag.programmatic { background: rgba(88, 166, 255, 0.2); color: #58a6ff; }
+    .overlap-goal-tag.bugfixing { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+    .overlap-goal-tag.goaloriented { background: rgba(255, 166, 0, 0.2); color: #f0883e; }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── EDITOR PANE ── */
+    .editor-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      min-width: 0;
+    }
+
+    .editor-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* The shared font/layout contract for both layers */
+    #highlight-layer,
+    #editor {
+      position: absolute;
+      inset: 0;
+      padding: 18px;
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      overflow-y: auto;
+      overflow-x: hidden;
+      tab-size: 2;
+    }
+
+    #highlight-layer {
+      pointer-events: none;
+      color: transparent;
+      z-index: 1;
+      /* marks need visible borders/backgrounds, text stays transparent */
+    }
+
+    #editor {
+      background: transparent;
+      border: none;
+      resize: none;
+      color: var(--text);
+      outline: none;
+      caret-color: var(--text-bright);
+      z-index: 2;
+      -webkit-text-fill-color: var(--text);
+      /* On some browsers, transparent text leaks through; use fill-color instead */
+    }
+
+    /* ── ANNOTATION MARKS ── */
+    /* text color on marks must stay transparent since highlight-layer color is transparent */
+    mark {
+      color: transparent;
+      border-radius: 2px;
+    }
+
+    mark.filler {
+      background: var(--filler-bg);
+      border-bottom: 2px solid var(--filler-underline);
+      border-radius: 2px 2px 0 0;
+    }
+
+    mark.vague {
+      background: var(--vague-bg);
+      border-bottom: 2px dashed var(--vague-underline);
+      border-radius: 2px 2px 0 0;
+    }
+
+    mark.high-impact {
+      background: var(--high-impact-bg);
+      outline: 1px solid var(--high-impact-border);
+      border-radius: 2px;
+    }
+
+    mark.constraint {
+      background: var(--constraint-bg);
+      outline: 1px solid var(--constraint-border);
+      border-radius: 2px;
+    }
+
+    mark.context {
+      background: var(--context-bg);
+      outline: 1px solid var(--context-border);
+      border-radius: 2px;
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      border-top: 1px solid var(--border);
+      padding: 5px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      background: var(--surface);
+      min-height: 26px;
+    }
+
+    #status-text {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #status-text.is-filler    { color: #f85149; }
+    #status-text.is-vague     { color: #f0883e; }
+    #status-text.is-high-impact,
+    #status-text.is-constraint { color: #3fb950; }
+    #status-text.is-context   { color: #58a6ff; }
+
+    /* ── RESIZE HANDLE ── */
+    .resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: var(--border);
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    
+    .resize-handle:hover {
+      background: var(--accent);
+    }
+    
+    .resize-handle.resizing {
+      background: var(--accent);
+    }
+
+    /* ── ANALYSIS PANE ── */
+    .analysis-pane {
+      width: 320px;
+      min-width: 260px;
+      max-width: 45vw;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--surface);
+      box-sizing: border-box;
+      resize: horizontal;
+    }
+    
+    .analysis-pane * {
+      max-width: 100%;
+    }
+
+    .pane-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      min-width: 0;
+    }
+
+    .section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── SCORE ── */
+    .score-display {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .score-ring {
+      position: relative;
+      width: 58px;
+      height: 58px;
+      flex-shrink: 0;
+    }
+
+    .score-ring svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .score-ring circle {
+      fill: none;
+      stroke-width: 5;
+    }
+
+    .score-ring .track {
+      stroke: var(--surface-2);
+    }
+
+    .score-ring .progress {
+      stroke: var(--accent);
+      stroke-dasharray: 175.9; /* 2 * PI * 28 */
+      stroke-dashoffset: 175.9;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.4s ease, stroke 0.3s ease;
+    }
+
+    .score-number {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .score-meta {
+      flex: 1;
+    }
+
+    .score-label-big {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+
+    .score-description {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── BREAKDOWN ── */
+    .breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .breakdown-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .breakdown-dot.high-impact  { background: #3fb950; }
+    .breakdown-dot.constraint   { background: #bc8cff; }
+    .breakdown-dot.context      { background: #58a6ff; }
+    .breakdown-dot.vague        { background: #f0883e; }
+    .breakdown-dot.filler       { background: #f85149; }
+
+    .breakdown-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── SUGGESTIONS ── */
+    .suggestion-item {
+      display: flex;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.4;
+      border-bottom: 1px solid var(--border);
+      min-width: 0;
+    }
+
+    .suggestion-item:last-child { border-bottom: none; }
+
+    .suggestion-icon {
+      flex-shrink: 0;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .suggestion-text {
+      min-width: 0;
+    }
+    
+    .suggestion-text strong {
+      color: var(--text-bright);
+      display: block;
+      margin-bottom: 1px;
+      word-wrap: break-word;
+    }
+
+    .suggestion-text span {
+      color: var(--text-muted);
+      font-size: 11px;
+      word-wrap: break-word;
+    }
+
+    /* ── MISSING HINTS ── */
+    .missing-item {
+      display: flex;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .missing-icon {
+      flex-shrink: 0;
+      color: #f0883e;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .legend-mark {
+      display: inline-block;
+      width: 28px;
+      height: 14px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .legend-mark.high-impact { background: var(--high-impact-bg); outline: 1px solid var(--high-impact-border); }
+    .legend-mark.constraint  { background: var(--constraint-bg); outline: 1px solid var(--constraint-border); }
+    .legend-mark.context     { background: var(--context-bg); outline: 1px solid var(--context-border); }
+    .legend-mark.vague       { background: var(--vague-bg); border-bottom: 2px dashed var(--vague-underline); }
+    .legend-mark.filler      { background: var(--filler-bg); border-bottom: 2px solid var(--filler-underline); }
+
+    .empty-state {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ── HOW IT WORKS ── */
+    details.how-it-works {
+      border-bottom: none;
+    }
+
+    details.how-it-works summary {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      margin-bottom: 0;
+    }
+
+    details.how-it-works summary::-webkit-details-marker { display: none; }
+
+    details.how-it-works summary::after {
+      content: '›';
+      font-size: 14px;
+      transition: transform 0.15s;
+      margin-left: auto;
+      color: var(--text-muted);
+    }
+
+    details.how-it-works[open] summary::after {
+      transform: rotate(90deg);
+    }
+
+    .how-body {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .how-block-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent);
+      margin-bottom: 5px;
+    }
+
+    .how-block p, .how-block li {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .how-block ul {
+      padding-left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .how-block li strong {
+      color: var(--text);
+    }
+
+    .formula-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 10px;
+      color: var(--text);
+      line-height: 1.6;
+      word-break: break-all;
+    }
+
+    .formula-box .f-pos { color: #3fb950; }
+    .formula-box .f-neg { color: #f85149; }
+    .formula-box .f-base { color: #f0883e; }
+    .formula-box .f-dim { color: var(--text-muted); }
+
+    /* ── OLLAMA HEADER STATUS ── */
+    .ollama-header-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-left: 1px solid var(--border);
+      padding-left: 14px;
+    }
+
+    .ollama-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .ollama-dot.connected    { background: #3fb950; box-shadow: 0 0 4px #3fb950; }
+    .ollama-dot.disconnected { background: #f85149; }
+    .ollama-dot.checking     { background: #f0883e; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    #ollama-model-select {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      outline: none;
+      max-width: 130px;
+    }
+
+    .ollama-cors-tip {
+      background: rgba(240, 136, 62, 0.1);
+      border: 1px solid rgba(240, 136, 62, 0.3);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: var(--text);
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+
+    .ollama-cors-tip code {
+      background: var(--surface-2);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+      font-size: 10px;
+      color: #58a6ff;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Prompt<span>Lens</span></div>
+  <div class="tagline">Grammarly for prompts — real-time structure analysis</div>
+
+  <div class="ollama-header-status">
+    <span class="ollama-dot checking" id="ollama-dot"></span>
+    <span id="ollama-header-label">Checking Ollama…</span>
+    <select id="ollama-model-select" style="display:none" title="Select local model"></select>
+  </div>
+
+  <div class="goal-selector">
+    <label>Goals</label>
+    <div class="goal-toggles">
+      <button class="goal-btn active" data-goal="efficient" title="Analyze for efficiency">⚡</button>
+      <button class="goal-btn" data-goal="creative" title="Analyze for creativity">🎨</button>
+      <button class="goal-btn" data-goal="programmatic" title="Analyze for code">💻</button>
+      <button class="goal-btn" data-goal="bugfixing" title="Analyze for debugging">🐛</button>
+      <button class="goal-btn" data-goal="goaloriented" title="Analyze for goal alignment">🎯</button>
+    </div>
+    <button id="compare-all-btn" class="compare-btn" title="Compare all goals">📊 Compare</button>
+    <button id="copy-json-btn" class="copy-json-btn" title="Copy prompt + full analysis as JSON for optimizer">⬇ Copy JSON</button>
+  </div>
+</header>
+
+<main>
+  <div class="editor-pane">
+    <div class="editor-container">
+      <div id="highlight-layer" aria-hidden="true"></div>
+      <textarea
+        id="editor"
+        placeholder="Paste or type your prompt here...
+
+PromptLens will highlight what matters — and what doesn't.
+Select a goal above to tune the analysis."
+        spellcheck="false"
+      ></textarea>
+    </div>
+    <div class="status-bar">
+      <span id="status-text">Select a goal and start typing</span>
+      <span id="word-count">0 words</span>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resize-handle"></div>
+  <div class="analysis-pane" id="analysis-pane">
+
+    <div class="pane-section">
+      <div class="section-title">Impact Score</div>
+      <div class="score-display">
+        <div class="score-ring">
+          <svg viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="28" class="track"/>
+            <circle cx="32" cy="32" r="28" class="progress" id="score-progress"/>
+          </svg>
+          <div class="score-number" id="score-number">—</div>
+        </div>
+        <div class="score-meta">
+          <div class="score-label-big" id="score-label">Waiting...</div>
+          <div class="score-description" id="score-description">Type a prompt to see analysis</div>
+          <div class="score-experimental" id="score-experimental" style="font-size: 10px; color: #f0883e; margin-top: 4px; font-style: italic;">⚠️ Experimental scoring — correlation with outcomes not yet validated</div>
+          
+          <!-- Feedback Collection UI -->
+          <div class="feedback-section" id="feedback-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 4px;">
+              <div style="font-size: 11px; color: var(--text-muted);">Was this helpful?</div>
+              <div id="vote-stats" style="font-size: 10px; color: var(--text-muted);"></div>
+            </div>
+            <div class="feedback-buttons" style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button class="feedback-btn" id="feedback-up" title="Score matches outcome" style="flex: 1; min-width: 60px; justify-content: center;">👍 <span style="font-size: 10px;">Good</span></button>
+              <button class="feedback-btn" id="feedback-down" title="Score was wrong" style="flex: 1; min-width: 60px; justify-content: center;">👎 <span style="font-size: 10px;">Bad</span></button>
+              <button class="feedback-btn secondary" id="feedback-ollama" title="LLM evaluation" style="flex: 1; min-width: 70px; justify-content: center;">🧠 Judge</button>
+            </div>
+            <div id="ollama-status" style="font-size: 10px; color: var(--text-muted); margin-top: 6px; display: none;"></div>
+            <div id="ollama-result" style="margin-top: 8px; display: none;"></div>
+          </div>
+          
+          <!-- Confidence Interval Display -->
+          <div class="confidence-display" id="confidence-display" style="margin-top: 8px; font-size: 10px; color: var(--text-muted); display: none;">
+            <span id="confidence-text">Score: -- (-- to --)</span>
+            <span id="confidence-badge" style="margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-size: 9px; text-transform: uppercase;">--</span>
+          </div>
+          
+          <!-- Validation Warning -->
+          <div id="validation-warning" style="margin-top: 8px; padding: 8px 10px; background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.3); border-radius: 6px; font-size: 10px; color: var(--text-muted); line-height: 1.4;">
+            <span style="color: var(--filler-underline);">⚠️</span>
+            <strong style="color: var(--text);">Unvalidated:</strong> Correlation with outcomes not established.<br>
+            <a href="#" onclick="window.open('validation-demonstration.html', '_blank'); return false;" style="color: var(--accent);">Learn more →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane-section" id="comparison-section" style="display:none">
+      <div class="section-title">Multi-Goal Comparison</div>
+      <div id="comparison-grid" class="comparison-grid"></div>
+      <div class="cross-goal-section" id="cross-goal-section" style="display:none">
+        <div class="cross-goal-title">Cross-Goal Insights</div>
+        <div id="cross-goal-list"></div>
+      </div>
+    </div>
+
+    <div class="pane-section" id="breakdown-section">
+      <div class="section-title">Annotation Breakdown</div>
+      <div id="breakdown-list"><div class="empty-state">No annotations yet</div></div>
+    </div>
+
+    <div class="pane-section" id="missing-section" style="display:none">
+      <div class="section-title">Missing Elements</div>
+      <div id="missing-list"></div>
+    </div>
+
+    <div class="pane-section">
+      <div class="section-title">Suggestions</div>
+      <div id="suggestions-list"><div class="empty-state">No suggestions yet</div></div>
+    </div>
+
+    <div class="pane-section">
+      <div class="section-title">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><mark class="legend-mark high-impact"></mark>Constraint / Specific value</div>
+        <div class="legend-item"><mark class="legend-mark constraint"></mark>Hard requirement</div>
+        <div class="legend-item"><mark class="legend-mark context"></mark>Useful context</div>
+        <div class="legend-item"><mark class="legend-mark vague"></mark>Vague — be more specific</div>
+        <div class="legend-item"><mark class="legend-mark filler"></mark>Filler — low model impact</div>
+      </div>
+    </div>
+
+    <div class="pane-section">
+      <details class="how-it-works">
+        <summary>How It Works</summary>
+        <div class="how-body">
+
+          <div class="how-block">
+            <div class="how-block-title">Annotation Types</div>
+            <ul>
+              <li><strong>High-impact</strong> — format specs, numeric values, tech/language names. These tokens most directly shape the model's output structure and content.</li>
+              <li><strong>Constraint</strong> — words like <em>must, only, never, no more than</em>. Hard limits the model is instructed not to violate.</li>
+              <li><strong>Context</strong> — background info, environment details, audience. Useful signal that helps the model reason about scope and framing.</li>
+              <li><strong>Vague</strong> — imprecise qualifiers like <em>good, fast, simple, soon</em>. These match against common patterns per goal and are flagged as under-specified.</li>
+              <li><strong>Filler</strong> — courtesy phrases (<em>please, could you, thanks</em>) and hedge words (<em>basically, sort of</em>). These consume tokens without improving model behavior.</li>
+            </ul>
+          </div>
+
+          <div class="how-block">
+            <div class="how-block-title">Priority & Overlap</div>
+            <p>Each rule has a priority (1–5). When patterns from different rules match the same word, the <strong>higher-priority rule wins</strong>. All rules for the selected goal are applied; results are merged by scanning each character position and keeping the highest-priority annotation.</p>
+          </div>
+
+          <div class="how-block">
+            <div class="how-block-title">Scoring Formula</div>
+            <p>Word counts per annotation type feed a weighted formula:</p>
+            <div class="formula-box">
+              <span class="f-dim">positive =</span> <span class="f-pos">(high×2 + constraint×2 + context×1.2)</span> <span class="f-dim">÷ words</span><br>
+              <span class="f-dim">negative =</span> <span class="f-neg">(filler×1.5 + vague×1.0)</span> <span class="f-dim">÷ words</span><br>
+              <span class="f-dim">score =</span> <span class="f-base">40</span> <span class="f-pos">+ positive×80</span> <span class="f-neg">− negative×60</span>
+            </div>
+            <p style="margin-top:6px">The baseline of <strong>40</strong> means a plain, unannotated prompt starts at 40/100. Specificity and constraints push it up; filler and vagueness pull it down. The result is clamped to 0–100.</p>
+          </div>
+
+          <div class="how-block">
+            <div class="how-block-title">Score Thresholds</div>
+            <ul>
+              <li><strong>85–100</strong> Excellent — dense, specific, well-constrained</li>
+              <li><strong>70–84</strong> Strong — good signal, minor refinements possible</li>
+              <li><strong>50–69</strong> Moderate — solid base, reduce filler or add constraints</li>
+              <li><strong>30–49</strong> Weak — too vague or too much filler</li>
+              <li><strong>0–29</strong> Low — consider removing filler and adding specifics</li>
+            </ul>
+          </div>
+
+          <div class="how-block">
+            <div class="how-block-title">Goal Tuning</div>
+            <p>Each goal loads a different rule set. Switching goals re-runs all pattern matching, changes which Missing Elements are checked, and swaps the Suggestions pool — so the same prompt can score very differently depending on what you're optimizing for.</p>
+          </div>
+
+        </div>
+      </details>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────
+//  RULE ENGINE
+// ─────────────────────────────────────────────
+
+const RULES = {
+  efficient: [
+    {
+      type: 'filler', priority: 3,
+      label: 'Filler phrase',
+      tooltip: 'Wastes tokens; models weight instruction density over politeness',
+      patterns: [
+        /\b(please|kindly)\b/gi,
+        /\b(could you|can you|would you)(\s+please)?\b/gi,
+        /\bi was wondering if(\s+you could)?\b/gi,
+        /\bif (you don'?t mind|possible|it'?s not too much trouble)\b/gi,
+        /\b(thanks?|thank you)(\s+so much|\s+in advance)?\b/gi,
+        /\bfeel free to\b/gi,
+        /\bdon'?t hesitate to\b/gi,
+        /\b(basically|essentially|literally|actually|obviously|clearly|honestly|frankly)\b/gi,
+        /\b(sort of|kind of|a bit|somewhat|fairly|quite|rather|pretty much)\b/gi,
+      ]
+    },
+    {
+      type: 'vague', priority: 2,
+      label: 'Vague qualifier',
+      tooltip: 'Too imprecise — add a concrete metric or constraint',
+      patterns: [
+        /\b(good|better|best|nice|great|excellent|awesome|perfect)\b(?!\s+than\b)/gi,
+        /\b(fast|quick|efficient)\b(?!\s+(than|as)\b)/gi,
+        /\b(simple|easy|clean|readable|maintainable)\b/gi,
+        /\b(some|various|several|many|a few|a couple)\b/gi,
+        /\b(appropriate|suitable|relevant|proper|reasonable)\b/gi,
+      ]
+    },
+    {
+      type: 'constraint', priority: 4,
+      label: 'Hard constraint',
+      tooltip: 'Explicit constraint — high model impact',
+      patterns: [
+        /\b(must|shall|only|exactly|no more than|at most|at least|between|limited to|requires?|restricted to|maximum|minimum)\b/gi,
+        /\b(do not|don'?t|never|avoid|exclude|without)\b/gi,
+        /\b(always|every single|all(?!\s+right))\b/gi,
+      ]
+    },
+    {
+      type: 'high-impact', priority: 4,
+      label: 'Format spec',
+      tooltip: 'Output format specified — strongly shapes response structure',
+      patterns: [
+        /\b(json|xml|yaml|csv|markdown|plain text|html|bullet points?|numbered list|table|code block|pseudocode)\b/gi,
+        /\bformatted?\s+as\b/gi,
+        /\breturn(?:ing)?\s+a?\s*(list|array|object|string|dict(?:ionary)?|number|integer)\b/gi,
+      ]
+    },
+    {
+      type: 'high-impact', priority: 4,
+      label: 'Specific value',
+      tooltip: 'Concrete number or unit — gives the model a precise target',
+      patterns: [
+        /\b\d+(\.\d+)?\s*(%|px|ms|s\b|kb|mb|gb|words?|lines?|char(?:acter)?s?|items?|steps?|results?|examples?|tokens?)\b/gi,
+        /\b(first|second|third|top\s+\d+|\d+(?:st|nd|rd|th))\b/gi,
+      ]
+    },
+  ],
+
+  creative: [
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Style / tone cue',
+      tooltip: 'Directly shapes the voice and feel of the output',
+      patterns: [
+        /\b(style|tone|voice|mood|aesthetic|vibe|feel|atmosphere)\b/gi,
+        // Digital/Emerging Aesthetics (50+ terms)
+        /\b(vaporwave|synthwave|retrowave|cyberpunk|solarpunk|lunarpunk|steampunk|dieselpunk|atompunk|biopunk|nanopunk)\b/gi,
+        /\b(cottagecore|goblincore|fairycore|dreamcore|weirdcore|cleancore|clowncore|traumacore|webcore|oldinternet)\b/gi,
+        /\b(dark academia|light academia|chaotic academia|romantic academia|art academia|classic academia)\b/gi,
+        /\b(liminal|backrooms|anemoia|kenopsia|jamais vu|deja vu|hauntology|spectral|ectoplasmic)\b/gi,
+        /\b(y2k|frutiger aero|frutiger metro|skeuomorphism|flat design|neumorphism|glassmorphism)\b/gi,
+        /\b(glitchcore|breakcore|dariacore|hyperpop|digicore|nightcore|speedcore|hardstyle)\b/gi,
+        /\b(tumblr aesthetic|pinterest aesthetic|insta aesthetic|grunge|soft grunge|pastel goth)\b/gi,
+        /\b(witchcore|cryptidcore|crowcore|pigeoncore|feralcore|rusticcore|grandmacore|cottagegore)\b/gi,
+        /\b(spacecore|starry|cosmic|galactic|celestial|lunar|solar|planetary|astral|ethereal tech)\b/gi,
+        /\b(kidcore|babycore|toycore|barbiecore|pink pilates princess|coquette|dollette|femme fatale)\b/gi,
+        // Art Historical Movements (100+ terms)
+        /\b(baroque|rococo|mannerism|renaissance|gothic|romanesque|byzantine|medieval|classical)\b/gi,
+        /\b(art nouveau|art deco|bauhaus|de stijl|constructivism|suprematism|futurism|vorticism)\b/gi,
+        /\b(impressionism|post-impressionism|pointillism|divisionism|neo-impressionism|tonalism)\b/gi,
+        /\b(expressionism|abstract expressionism|neo-expressionism|lyrical abstraction)\b/gi,
+        /\b(cubism|analytical cubism|synthetic cubism|orphism|purism)\b/gi,
+        /\b(surrealism|automatism|biomorphism|veristic surrealism|abstract surrealism)\b/gi,
+        /\b(dada|neo-dada|fluxus|mail art|conceptual art|performance art|happenings)\b/gi,
+        /\b(fauvism|les fauves|wild beasts|matisse|derain|vlaminck|braque|dufy)\b/gi,
+        /\b(pop art|op art|kinetic art|minimalism|post-minimalism|systemic art)\b/gi,
+        /\b(photorealism|hyperrealism|superrealism|new realism|nouveau realisme)\b/gi,
+        /\b(land art|earth art|environmental art|ecological art|site-specific art)\b/gi,
+        /\b(photography|pictorialism|straight photography|decisive moment)\b/gi,
+        /\b(neoclassical|romanticism|academic art|orientalism|primitivism|naive art)\b/gi,
+        /\b(social realism|socialist realism|magic realism|hyperrealism)\b/gi,
+        /\b(art brut|outsider art|visionary art|intuitive art|raw art)\b/gi,
+        /\b(street art|urban art|graffiti|tagging|throw-ups|wildstyle|stencil art)\b/gi,
+        /\b(digital art|new media art|net art|post-internet|post-digital|generative)\b/gi,
+        /\b(ukiyo-e|edo period|meiji period|nanga|bunjinga|yamato-e|rinpa)\b/gi,
+        /\b(chinese ink|sumi-e|guohua|shan shui|gongbi|bird-and-flower)\b/gi,
+        /\b(islamic art|persian miniature|ottoman miniature|mughal painting)\b/gi,
+        /\b(pre-raphaelite|arts and crafts|aesthetic movement|symbolism)\b/gi,
+        // Literary Modes (80+ terms)
+        /\b(magical realism|marvelous realism|fabulation|slipstream|new weird)\b/gi,
+        /\b(stream of consciousness|interior monologue|free indirect discourse)\b/gi,
+        /\b(epistolary|diary fiction|found manuscript|frame narrative|nested narrative)\b/gi,
+        /\b(bildungsroman|kunstlerroman|erziehungsroman|entwicklungsroman)\b/gi,
+        /\b(pastoral|anti-pastoral|georgic|bucolic|idyll|eclogue|arcadian)\b/gi,
+        /\b(apocalyptic|post-apocalyptic|dystopian|utopian|anti-utopian|speculative)\b/gi,
+        /\b(gonzo|new journalism|creative nonfiction|literary journalism)\b/gi,
+        /\b(noir|neo-noir|hardboiled|detective|whodunit|police procedural)\b/gi,
+        /\b(gothic|southern gothic|suburban gothic|urban gothic|new gothic)\b/gi,
+        /\b(romance|chivalric romance|amatory fiction|bodice ripper|paranormal romance)\b/gi,
+        /\b(satire|parody|burlesque|travesty|mock-epic|lampoon|invective)\b/gi,
+        /\b(allegory|fable|parable|exemplum|bestiary|beast epic|animal tale)\b/gi,
+        /\b(myth|legend|saga|epic|heroic poetry|oral tradition|folk tale|fairy tale)\b/gi,
+        /\b(horror|cosmic horror|body horror|psychological horror|folk horror)\b/gi,
+        /\b(science fiction|hard sf|soft sf|cyberpunk|biopunk|steampunk|solarpunk)\b/gi,
+        /\b(fantasy|high fantasy|low fantasy|urban fantasy|grimdark|noblebright)\b/gi,
+        /\b(thriller|suspense|psychological thriller|techno-thriller|medical thriller)\b/gi,
+        /\b(western|weird west|space western|revisionist western|spaghetti western)\b/gi,
+        // Emotional Textures (200+ terms)
+        /\b(forlorn|desolate|bereft|forsaken|abandoned|isolated|lonesome|solitary)\b/gi,
+        /\b(buoyant|effervescent|ebullient|exuberant|vivacious|irrepressible|jaunty)\b/gi,
+        /\b(caustic|acerbic|mordant|trenchant|scathing|withering|corrosive)\b/gi,
+        /\b(tender|gentle|soft|delicate|fragile|vulnerable|intimate|tentative)\b/gi,
+        /\b(visceral|gut-wrenching|raw|primal|elemental|primordial|atavistic)\b/gi,
+        /\b(ethereal|otherworldly|unearthly|celestial|transcendent|diaphanous)\b/gi,
+        /\b(grounded|earthy|rooted|substantial|tangible|concrete|palpable)\b/gi,
+        /\b(yearning|longing|aching|pining|thirsting|hungering|craving)\b/gi,
+        /\b(restless|uneasy|agitated|turbulent|roiling|brooding|seething)\b/gi,
+        /\b(wistful|nostalgic|reminiscent|elegiac|plaintive|melancholy|somber)\b/gi,
+        /\b(melancholic|lugubrious|mournful|doleful|funereal|sepulchral)\b/gi,
+        /\b(frenetic|frenzied|manic|feverish|hectic|frantic|delirious|hysterical)\b/gi,
+        /\b(lyrical|poetic|rhapsodic|dithyrambic|euphonious|mellifluous|dulcet)\b/gi,
+        /\b(minimalist|spare|austere|ascetic|pared-down|essential|elemental)\b/gi,
+        /\b(maximalist|baroque|ornate|rococo|opulent|lavish|sumptuous|luxuriant)\b/gi,
+        /\b(surreal|dreamlike|oneiric|phantasmagoric|hallucinatory|psychedelic)\b/gi,
+        /\b(gritty|raw|unvarnished|unflinching|hard-boiled|noir-ish|street-level)\b/gi,
+        /\b(whimsical|capricious|playful|mischievous|impish|elfin|fey|pixieish)\b/gi,
+        /\b(dry|wry|deadpan|understated|laconic|taciturn|reticent|reserved)\b/gi,
+        /\b(ironic|sardonic|sarcastic|cynical|jaded|world-weary|blasé)\b/gi,
+        /\b(absurdist|nonsensical|irrational|illogical|paradoxical|kafkaesque)\b/gi,
+        /\b(haunting|evocative|poignant|stirring|moving|touching|affecting)\b/gi,
+        /\b(ominous|portentous|foreboding|menacing|threatening|sinister|darkling)\b/gi,
+        /\b(sublime|awe-inspiring|majestic|grand|lofty|exalted|transcendent)\b/gi,
+        /\b(uncanny|eerie|weird|strange|unsettling|disquieting|disturbing)\b/gi,
+        /\b(luminous|radiant|incandescent|effulgent|refulgent|lambent|aglow)\b/gi,
+        /\b(shadowy|tenebrous|crepuscular|nocturnal|umbral|stygian|aphotic)\b/gi,
+        /\b(crisp|brisk|bracing|invigorating|refreshing|stimulating|exhilarating)\b/gi,
+        /\b(murky|opaque|nebulous|vague|indistinct|hazy|foggy|clouded|turbid)\b/gi,
+        /\b(crystalline|limpid|pellucid|transparent|translucent|lucid|clear)\b/gi,
+        /\b(rough|coarse|crude|rugged|unrefined|raw|unpolished|unvarnished)\b/gi,
+        /\b(smooth|slick|polished|refined|sophisticated|urbane|suave|debonair)\b/gi,
+        /\b(sharp|keen|acute|piercing|incisive|penetrating|astute|perceptive)\b/gi,
+        /\b(blunt|dull|obtuse|vague|fuzzy|hazy|muddled|confused|befuddled)\b/gi,
+        /\b(vibrant|vivid|brilliant|dazzling|scintillating|resplendent|splendid)\b/gi,
+        /\b(muted|subdued|restrained|understated|quiet|soft|subtle|delicate)\b/gi,
+        /\b(bold|daring|audacious|fearless|intrepid|valiant|gallant|courageous)\b/gi,
+        /\b(timid|meek|mild|gentle|docile|submissive|retiring|diffident)\b/gi,
+        /\b(fierce|ferocious|savage|wild|untamed|furious|vehement|passionate)\b/gi,
+        /\b(tame|domesticated|docile|subdued|controlled|restrained|inhibited)\b/gi,
+        /\b(precise|exact|accurate|meticulous|scrupulous|punctilious|fastidious)\b/gi,
+        /\b(loose|lax|sloppy|careless|negligent|remiss|perfunctory|cursory)\b/gi,
+        /\b(dense|thick|compact|concentrated|condensed|compressed|consolidated)\b/gi,
+        /\b(thin|sparse|scant|meager|skimpy|sparse|scattered|dispersed)\b/gi,
+        /\b(rich|wealthy|affluent|opulent|sumptuous|lavish|plush|luxurious)\b/gi,
+        /\b(poor|impoverished|destitute|indigent|penurious|impecunious|needy)\b/gi,
+        /\b(warm|hot|thermal|torrid|tropical|sultry|sweltering|scorching|searing)\b/gi,
+        /\b(cool|cold|chilly|frigid|icy|frosty|freezing|arctic|polar|glacial)\b/gi,
+        /\b(fresh|novel|original|innovative|groundbreaking|pioneering|trailblazing)\b/gi,
+        /\b(stale|old|hackneyed|trite|banal|commonplace|pedestrian|mundane)\b/gi,
+        /\b(sweet|sugary|saccharine|cloying|honeyed|mellifluous|dulcet|musical)\b/gi,
+        /\b(bitter|acrid|acrimonious|rancorous|embittered|jaundiced|cynical)\b/gi,
+        /\b(sour|tart|acidic|acerbic|caustic|mordant|astringent|pungent)\b/gi,
+      ]
+    },
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Style reference',
+      tooltip: 'Reference anchors the model to a known creative space — very effective',
+      patterns: [
+        /\b(like|similar to|inspired by|in the style of|in the manner of|reminiscent of|evoking|channeling)\b/gi,
+        /\bthink\s+[A-Z][a-z]+\b/g,
+      ]
+    },
+    {
+      type: 'context', priority: 3,
+      label: 'Premise / subject',
+      tooltip: 'Core subject matter — good anchoring context',
+      patterns: [
+        /\b(about|set in|featuring|protagonist|character|setting|world|universe|story|poem|song|essay|narrative)\b/gi,
+      ]
+    },
+    {
+      type: 'vague', priority: 2,
+      label: 'Vague creative directive',
+      tooltip: 'Too generic — add a specific style reference or mood word',
+      patterns: [
+        /\b(creative|interesting|unique|cool|original|different|special|engaging)\b/gi,
+        /\b(good|nice|great|beautiful|amazing)\b/gi,
+      ]
+    },
+    {
+      type: 'filler', priority: 2,
+      label: 'Filler',
+      tooltip: 'Low creative impact — trims context window without adding signal',
+      patterns: [
+        /\b(please|kindly|could you|would you|thank you|thanks)\b/gi,
+        /\b(basically|essentially|sort of|kind of)\b/gi,
+      ]
+    },
+  ],
+
+  programmatic: [
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Language / framework',
+      tooltip: 'Technology name — among the highest-impact tokens for code generation',
+      patterns: [
+        /\b(python|javascript|typescript|c\+\+|c#|kotlin|elixir|haskell|zig|lua|perl|r|matlab|julia|dart|flutter)\b/gi,
+        /\b(vue|angular|svelte|nextjs|nuxt|node(?:\.?js)?|django|flask|fastapi|spring|rails|laravel|gin|actix|aspnet)\b/gi,
+        /\b(sql|postgres(?:ql)?|mysql|mariadb|mongodb|redis|sqlite|elasticsearch|graphql|grpc|rest(?:ful)?|openapi)\b/gi,
+        /\b(docker|kubernetes|terraform|ansible|webpack|vite|jest|pytest|cargo|maven|gradle|npm|yarn|pnpm)\b/gi,
+        /\b(async|await|promise|callback|stream|iterator|generator|coroutine|concurrency|parallel)\b/gi,
+        // Context-disambiguated language terms (fixes false positives)
+        /\b(swift\s+(?:app|code|program|language|ui|package|import|function|class|struct|protocol|extension))\b/gi,
+        /\b(in swift|using swift|swift code|swift program|swift developer)\b/gi,
+        /\b(go\s+(?:lang|program|code|module|package|routine|channel|interface|struct|func\s))\b/gi,
+        /\b(golang|in go|using go|go code|go program|go developer|go routine|go module)\b/gi,
+        /\b(rust\s+(?:code|program|lang|crate|module|trait|impl|fn|struct|enum|macro))\b/gi,
+        /\b(in rust|using rust|rust code|rust program|rust developer|rust crate)\b/gi,
+        /\b(java\s+(?:code|program|class|method|interface|package|import|spring|android))\b/gi,
+        /\b(in java|using java|java code|java program|java developer|java app)\b/gi,
+        /\b(ruby\s+(?:code|program|gem|class|method|module|rails|on rails))\b/gi,
+        /\b(in ruby|using ruby|ruby code|ruby program|ruby developer|ruby gem)\b/gi,
+        /\b(scala\s+(?:code|program|trait|object|case class|implicit|functional))\b/gi,
+        /\b(in scala|using scala|scala code|scala program|scala developer)\b/gi,
+        /\b(react\s+(?:js|component|hook|app|native|dom|server|frontend))\b/gi,
+        /\b(in react|using react|react code|react developer|react app|react component)\b/gi,
+        /\b(express\s+(?:js|middleware|router|app|server|api|framework))\b/gi,
+        /\b(expressjs|in express|using express|express code|express app|express server)\b/gi,
+      ]
+    },
+    {
+      type: 'high-impact', priority: 4,
+      label: 'Type / signature info',
+      tooltip: 'Type information helps the model produce correctly-typed code',
+      patterns: [
+        /\b(string|int(?:eger)?|float|double|bool(?:ean)?|array|list|dict(?:ionary)?|object|null|void|any|unknown|optional|never)\b/gi,
+        /\b(input[s]?|output[s]?|returns?|param(?:eter)?s?)\s*:/gi,
+        // Generics and type parameters
+        /\b(Array|Vec|List|Map|HashMap|BTreeMap|Set|HashSet|Option|Result|Box|Rc|Arc|RefCell|Cell)\s*<[^>]+>\b/gi,
+        /\b[A-Z][a-zA-Z]*<\s*[A-Z][a-zA-Z0-9_]*\s*(,\s*[A-Z][a-zA-Z0-9_]*\s*)*>/g,
+        // TypeScript/Flow union and intersection types
+        /\b(string|number|boolean|object|symbol|bigint)\s*\|\s*(string|number|boolean|object|symbol|bigint)\b/gi,
+        /\b[A-Z][a-zA-Z0-9_]*\s*\|\s*(null|undefined)\b/gi,
+        /\b[A-Z][a-zA-Z0-9_]*\s*&\s*[A-Z][a-zA-Z0-9_]*\b/gi,
+        // Rust-specific type patterns
+        /\b&mut\s+[A-Z][a-zA-Z0-9_<>,\s]*/g,
+        /\b&'[a-z]\s+(mut\s+)?[A-Z][a-zA-Z0-9_<>,\s]*/g,
+        /\bimpl\s+(Trait|Fn|Clone|Copy|Debug|Display|PartialEq|Eq|PartialOrd|Ord|Hash|Default|Send|Sync)\b/gi,
+        /\bwhere\s+[A-Z][a-zA-Z0-9_]*\s*:\s*(Clone|Copy|Debug|Display|Send|Sync|Sized|'static)\b/gi,
+        // TypeScript strict mode patterns
+        /\breadonly\s+(?:\[)?\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*(?:\])?\s*:/g,
+        /\bas\s+const\b/gi,
+        /\bsatisfies\s+[A-Z][a-zA-Z0-9_<>,\s]*/gi,
+        /\binfer\s+[A-Z][a-zA-Z0-9_]*\b/gi,
+        // Generic constraints
+        /\bextends\s+[A-Z][a-zA-Z0-9_]*\s*(=\s*[A-Z][a-zA-Z0-9_]*)?\b/gi,
+      ]
+    },
+    {
+      type: 'constraint', priority: 4,
+      label: 'Code constraint',
+      tooltip: 'Shapes implementation significantly',
+      patterns: [
+        /\b(no (external )?librar(y|ies)|without\s+import|built[-\s]in only|standard librar)\b/gi,
+        /O\([n\d\s\*\^log\s]+\)/g,
+        /\b(thread[-\s]safe|immutable|functional|pure function|side[-\s]effect[-\s]free)\b/gi,
+        /\b(unit test|tdd|test coverage|error handling|edge case|null check|input validation)\b/gi,
+      ]
+    },
+    {
+      type: 'vague', priority: 2,
+      label: 'Vague performance req.',
+      tooltip: 'Specify Big-O notation, milliseconds, or throughput instead',
+      patterns: [
+        /\b(fast|quick|efficient|performant|optimized?)\b/gi,
+        /\b(clean|readable|maintainable|elegant|simple)\b/gi,
+        /\b(best practice[s]?|idiomatic|proper|correct(?:ly)?)\b(?!\s+(type|signature))/gi,
+      ]
+    },
+    {
+      type: 'filler', priority: 3,
+      label: 'Filler',
+      tooltip: 'Not code-relevant — reduces instruction density',
+      patterns: [
+        /\b(please|kindly|could you|would you|thank you|thanks)\b/gi,
+        /\b(basically|essentially|sort of|kind of)\b/gi,
+      ]
+    },
+  ],
+
+  bugfixing: [
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Error information',
+      tooltip: 'Critical — the model needs the exact error to diagnose accurately',
+      patterns: [
+        /\b(error|exception|traceback|stack trace|crash|segfault|panic|fatal)\b/gi,
+        /[A-Z][a-zA-Z]*Error\b/g,
+        /[A-Z][a-zA-Z]*Exception\b/g,
+        /\bat line \d+/gi,
+        /\bline \d+\b/gi,
+        /\bfile ".*?"/gi,
+      ]
+    },
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Expected vs actual',
+      tooltip: 'The most diagnostic information you can provide',
+      patterns: [
+        /\b(expected|should (be|return|produce|show)|want(?:ed)? to)\b/gi,
+        /\b(but (got|returns?|shows?|gives?|produces?|instead))\b/gi,
+        /\b(actual result|actual output|instead (of|it))\b/gi,
+      ]
+    },
+    {
+      type: 'context', priority: 3,
+      label: 'Environment info',
+      tooltip: 'Helps narrow root cause to platform/version-specific issues',
+      patterns: [
+        /\bv\d+\.\d+(\.\d+)?\b/g,
+        /\b(version|os|platform|browser|environment)\b/gi,
+        /\b(windows|macos|linux|ubuntu|debian|chrome|firefox|safari|node|python)\s+\d/gi,
+        /\b(local|staging|production|dev|prod)\b/gi,
+      ]
+    },
+    {
+      type: 'context', priority: 3,
+      label: 'Reproduction steps',
+      tooltip: 'Tells the model how to mentally simulate the failure',
+      patterns: [
+        /\b(when i|if i|after (i |doing )|before (i |doing ))\b/gi,
+        /\b(steps? to reproduce|to reproduce|happens when)\b/gi,
+        /\b\d+\.\s+[A-Z]/gm,
+      ]
+    },
+    {
+      type: 'vague', priority: 2,
+      label: 'Vague failure description',
+      tooltip: 'Describe what breaks, when, and what you expected instead',
+      patterns: [
+        /\b(doesn'?t work|not working|broken|fails?|is wrong|is bad|is weird)\b(?!\s+(with|when|because|on|after))/gi,
+        /\b(something is wrong|something went wrong|i have a (problem|bug|issue))\b/gi,
+        /\b(it'?s not (right|correct|working))\b/gi,
+      ]
+    },
+    {
+      type: 'filler', priority: 1,
+      label: 'Filler',
+      tooltip: 'Not diagnostic — skip the preamble, go straight to the error',
+      patterns: [
+        /\b(please|kindly|could you|would you|thank you|thanks)\b/gi,
+        /\b(i'?m not sure (but|if|why)|i think maybe|perhaps)\b/gi,
+        /\b(basically|essentially|sort of)\b/gi,
+      ]
+    },
+  ],
+
+  goaloriented: [
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Objective statement',
+      tooltip: 'The primary directional signal — highest impact on goal pursuit',
+      patterns: [
+        /\b(goal|objective|aim|purpose|target|mission|outcome|deliverable)\b/gi,
+        /\b(achieve|accomplish|deliver|complete|reach|attain|produce)\b/gi,
+        /\b(so that|in order to|with the goal of|to enable|to allow|to ensure)\b/gi,
+      ]
+    },
+    {
+      type: 'constraint', priority: 4,
+      label: 'Success criteria',
+      tooltip: 'Measurable outcome — helps model optimize toward the right finish line',
+      patterns: [
+        /\b(success(?:ful)?|done when|complete when|measure[sd]? by|kpi|metric[s]?)\b/gi,
+        /\b(by (monday|tuesday|wednesday|thursday|friday|the end of|next))\b/gi,
+        /\bdeadline\b/gi,
+        /\b\d+\s*%\s*(improvement|increase|decrease|reduction|growth)\b/gi,
+      ]
+    },
+    {
+      type: 'context', priority: 3,
+      label: 'Stakeholder / audience',
+      tooltip: 'Tells the model who benefits — shapes framing and priorities',
+      patterns: [
+        /\b(audience|user[s]?|customer[s]?|client[s]?|stakeholder[s]?|manager|executive|team)\b/gi,
+        /\b(technical|non-technical|beginner|expert|senior|junior)\b/gi,
+        /\bfor\s+(the\s+)?(team|company|client|product|project)\b/gi,
+      ]
+    },
+    {
+      type: 'vague', priority: 2,
+      label: 'Vague aspiration',
+      tooltip: 'What does "good" mean here? Add a specific success criterion',
+      patterns: [
+        /\b(good|better|best|nice|great|improve|make it work|helpful|useful|valuable)\b/gi,
+        /\b(asap|soon|quickly|eventually|at some point)\b/gi,
+        /\b(i want|i need|i would like)\b(?!\s+to\s+(specifically|exactly))/gi,
+      ]
+    },
+    {
+      type: 'filler', priority: 1,
+      label: 'Filler',
+      tooltip: 'Dilutes goal signal — trim to sharpen directive',
+      patterns: [
+        /\b(please|kindly|could you|would you|thank you|thanks)\b/gi,
+        /\b(basically|essentially|sort of|kind of|a bit|somewhat)\b/gi,
+      ]
+    },
+  ],
+};
+
+// ─────────────────────────────────────────────
+//  PRE-COMPILED RULES CACHE (PERFORMANCE OPT)
+// ─────────────────────────────────────────────
+
+const COMPILED_RULES = {};
+for (const [goal, rules] of Object.entries(RULES)) {
+  COMPILED_RULES[goal] = rules.map(rule => ({
+    ...rule,
+    compiledPatterns: rule.patterns.map(pat => {
+      try {
+        return new RegExp(pat.source, pat.flags.includes('g') ? pat.flags : pat.flags + 'g');
+      } catch (e) {
+        console.error(`Invalid pattern: ${pat.source}`, e);
+        return /(?!)/;
+      }
+    })
+  }));
+}
+
+// Missing-element checks per goal
+const MISSING_CHECKS = {
+  efficient: [
+    { id: 'fmt',   label: 'No output format', tip: 'Specify a format (JSON, list, table…) to get structured output', check: t => /\b(json|xml|yaml|csv|markdown|list|table|bullet|numbered)\b/i.test(t) },
+    { id: 'cst',   label: 'No constraints',   tip: 'Add "only", "must", "no more than X" to focus the response',   check: t => /\b(must|only|exactly|no more than|limit|require)\b/i.test(t) },
+  ],
+  programmatic: [
+    { id: 'lang',  label: 'No language specified',  tip: 'Name the programming language or framework explicitly',                    check: t => /\b(python|javascript|typescript|java|rust|golang|go\s+(?:code|program)|ruby|php|swift|kotlin|c\+\+|c#)\b/i.test(t) },
+    { id: 'io',    label: 'No input/output defined', tip: 'Describe input parameters and expected return value or output format',    check: t => /\b(input[s]?|output[s]?|takes?|returns?|param(?:eter)?s?|arg(?:ument)?s?)\b/i.test(t) },
+    { id: 'types', label: 'No type information',    tip: 'Add type annotations, generics, or type constraints for better code generation', check: t => /\b(string|int|float|bool|Array|Vec|Map|Option|Result|<[^>]+>|\bas\s+const\b|\bsatisfies\b)\b/i.test(t) },
+  ],
+  bugfixing: [
+    { id: 'err',   label: 'No error message',        tip: 'Paste the exact error message or stack trace',                            check: t => /\b(error|exception|traceback|TypeError|ValueError|SyntaxError)\b/i.test(t) },
+    { id: 'exp',   label: 'No expected behavior',    tip: 'State what you expected to happen vs what actually happened',             check: t => /\b(expected|should|want(?:ed)?|instead)\b/i.test(t) },
+    { id: 'rep',   label: 'No reproduction steps',   tip: 'Describe how to trigger the bug (steps, input, conditions)',              check: t => /\b(when|after|if i|steps?|to reproduce|happens)\b/i.test(t) },
+  ],
+  creative: [
+    { id: 'tone',  label: 'No tone or style cue',    tip: 'Add a mood word or style reference — e.g. "melancholic", "like Kafka"',  check: t => /\b(style|tone|voice|mood|aesthetic|lyrical|poetic|dark|whimsical|inspired by|like)\b/i.test(t) },
+  ],
+  goaloriented: [
+    { id: 'suc',   label: 'No success criteria',     tip: 'Define what "done" looks like — a metric, milestone, or deliverable',   check: t => /\b(success|done when|metric|kpi|measure|complete when|by \w+day)\b/i.test(t) },
+    { id: 'aud',   label: 'No audience defined',     tip: 'Specify who this is for — shapes tone and scope significantly',          check: t => /\b(audience|user[s]?|customer[s]?|team|for the)\b/i.test(t) },
+  ],
+};
+
+// ─────────────────────────────────────────────
+//  DEFENSIVE PROGRAMMING CONSTANTS
+// ─────────────────────────────────────────────
+
+const MAX_ITERATIONS = 10000;
+const MAX_INPUT_LENGTH = 100000;
+
+// ─────────────────────────────────────────────
+//  ANNOTATION ENGINE (HARDENED)
+// ─────────────────────────────────────────────
+
+function annotate(text, goal) {
+  // Input size validation - prevent memory exhaustion
+  if (text.length > MAX_INPUT_LENGTH) {
+    console.warn(`Input exceeds maximum length of ${MAX_INPUT_LENGTH} characters. Truncating.`);
+    text = text.slice(0, MAX_INPUT_LENGTH);
+  }
+
+  const rules = COMPILED_RULES[goal] || [];
+  const slots = new Array(text.length).fill(null);
+
+  // Collect all matches from all rules (lower priority = overwritten by higher)
+  // We process ascending priority so high-priority wins when overlapping
+  const rulesSorted = [...rules].sort((a, b) => a.priority - b.priority);
+
+  // Infinite loop protection counter
+  let totalIterations = 0;
+
+  for (const rule of rulesSorted) {
+    for (const regex of rule.compiledPatterns) {
+      // Reset regex state for each use
+      regex.lastIndex = 0;
+      let m;
+      while ((m = regex.exec(text)) !== null) {
+        // Infinite loop protection
+        totalIterations++;
+        if (totalIterations > MAX_ITERATIONS) {
+          console.warn(`MAX_ITERATIONS (${MAX_ITERATIONS}) reached in annotate(). Stopping pattern matching.`);
+          return slots;
+        }
+
+        // Handle zero-length matches - force advance to prevent infinite loop
+        if (m[0].trim().length === 0) {
+          regex.lastIndex = m.index + 1;
+          continue;
+        }
+
+        const start = m.index;
+        const end = m.index + m[0].length;
+        for (let i = start; i < end; i++) {
+          // Higher priority overwrites
+          if (slots[i] === null || slots[i].priority <= rule.priority) {
+            slots[i] = { type: rule.type, priority: rule.priority, label: rule.label, tooltip: rule.tooltip };
+          }
+        }
+      }
+    }
+  }
+  return slots;
+}
+
+function buildHighlightHTML(text, slots) {
+  let html = '';
+  let i = 0;
+  while (i < text.length) {
+    const ann = slots[i];
+    if (ann === null) {
+      let j = i;
+      while (j < text.length && slots[j] === null) j++;
+      html += escHtml(text.slice(i, j));
+      i = j;
+    } else {
+      let j = i;
+      while (j < text.length && slots[j] === ann) j++;
+      const tip = escAttr(ann.tooltip || '');
+      html += `<mark class="${ann.type}" title="${tip}">${escHtml(text.slice(i, j))}</mark>`;
+      i = j;
+    }
+  }
+  return html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escAttr(s) {
+  return s.replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────
+//  SCORING
+// ─────────────────────────────────────────────
+
+function computeScore(text, slots) {
+  try {
+    if (!text.trim()) return null;
+    const words = text.trim().split(/\s+/).length;
+    if (words < 3) return null;
+
+    let highCount = 0, constraintCount = 0, contextCount = 0, vagueCount = 0, fillerCount = 0;
+    let i = 0;
+    while (i < text.length) {
+      const ann = slots[i];
+      if (ann !== null) {
+        let j = i;
+        while (j < text.length && slots[j] === ann) j++;
+        const span = text.slice(i, j).trim().split(/\s+/).length;
+        if (ann.type === 'high-impact')  highCount      += span;
+        if (ann.type === 'constraint')   constraintCount += span;
+        if (ann.type === 'context')      contextCount    += span;
+        if (ann.type === 'vague')        vagueCount      += span;
+        if (ann.type === 'filler')       fillerCount      += span;
+        i = j;
+      } else {
+        i++;
+      }
+    }
+
+    // Weighted score: positives add, negatives subtract
+    const positive = (highCount * 2 + constraintCount * 2 + contextCount * 1.2) / Math.max(words, 1);
+    const negative = (fillerCount * 1.5 + vagueCount * 1.0) / Math.max(words, 1);
+    const raw = 40 + positive * 80 - negative * 60;
+    const score = Math.round(Math.min(100, Math.max(0, raw)));
+
+    return { score, highCount, constraintCount, contextCount, vagueCount, fillerCount, words };
+  } catch (e) {
+    console.error('Error in computeScore:', e.message);
+    return null;
+  }
+}
+
+function scoreLabel(score) {
+  const experimentalNotice = "(Experimental - correlation not validated)";
+  if (score === null) return ['Waiting…', 'Type a prompt to see your impact score'];
+  if (score >= 85) return ['Excellent ' + experimentalNotice, 'Dense, specific, and well-constrained'];
+  if (score >= 70) return ['Strong ' + experimentalNotice,    'Good signal — minor refinements possible'];
+  if (score >= 50) return ['Moderate ' + experimentalNotice,  'Solid base — reduce filler or add constraints'];
+  if (score >= 30) return ['Weak ' + experimentalNotice,      'Too vague or too much filler — tighten it up'];
+  return ['Low ' + experimentalNotice, 'Consider removing filler and adding specifics'];
+}
+
+// ─────────────────────────────────────────────
+//  SUGGESTIONS ENGINE
+// ─────────────────────────────────────────────
+
+const SUGGESTIONS = {
+  efficient: [
+    { check: s => /\b(please|kindly|could you|would you)\b/i.test(s), icon: '✂️', title: 'Cut the courtesy', tip: '"Please" and "could you" cost tokens without improving output quality.' },
+    { check: s => /\b(good|nice|great|fast|simple)\b/i.test(s) && !/\b\d+\b/.test(s), icon: '📏', title: 'Quantify vague terms', tip: 'Replace "fast" with "under 200ms", "simple" with "under 50 lines", etc.' },
+    { check: s => !/\b(json|xml|yaml|csv|list|table|markdown)\b/i.test(s), icon: '📋', title: 'Specify output format', tip: 'Adding "return as JSON" or "use a bulleted list" focuses the response structure.' },
+    { check: s => !/\b(must|only|exactly|no more than|limit|don\'t|do not)\b/i.test(s), icon: '🔒', title: 'Add a constraint', tip: 'Constraints like "only use X" or "no more than Y" reduce rambling.' },
+  ],
+  creative: [
+    { check: s => !/\b(style|tone|voice|mood|aesthetic|inspired by|like)\b/i.test(s), icon: '🎭', title: 'Add a style anchor', tip: '"In the style of Raymond Carver" or "melancholic, sparse prose" anchors the creative direction.' },
+    { check: s => /\b(creative|interesting|unique|cool)\b/i.test(s), icon: '🎯', title: 'Replace generic descriptors', tip: 'Instead of "creative," name a specific aesthetic or reference a known work.' },
+    { check: s => !/\b(avoid|don\'t|no)\b/i.test(s), icon: '🚫', title: 'Consider a negative constraint', tip: '"Avoid clichés" or "don\'t resolve the conflict" can be as powerful as positive direction.' },
+  ],
+  programmatic: [
+    { check: s => !/\b(python|javascript|typescript|java|rust|golang|go\s+(?:code|program)|ruby|php|swift|kotlin|c\+\+|c#)\b/i.test(s), icon: '💻', title: 'Name the language', tip: 'Explicitly stating the language is one of the highest-impact tokens in a code prompt.' },
+    { check: s => !/\b(input|output|returns?|param|takes?)\b/i.test(s), icon: '📐', title: 'Define input/output', tip: 'Describe what goes in, what comes out, and the types if known.' },
+    { check: s => /\b(fast|efficient|clean|readable)\b/i.test(s), icon: '📊', title: 'Quantify requirements', tip: '"O(n log n) time complexity" is far more useful to the model than "fast".' },
+    { check: s => !/\b(error|edge case|null|validation|test)\b/i.test(s), icon: '🛡️', title: 'Mention error handling', tip: 'If you don\'t mention it, the model often skips it entirely.' },
+    { check: s => !/\b(Array|Vec|Map|Option|Result|<[^>]+>|readonly|as const|satisfies)\b/i.test(s), icon: '🔷', title: 'Add type constraints', tip: 'Specify generics, unions, or TypeScript strict mode patterns for better type inference.' },
+  ],
+  bugfixing: [
+    { check: s => !/\b(error|exception|traceback|TypeError|ValueError)\b/i.test(s), icon: '🔴', title: 'Include the error message', tip: 'Paste the exact error text or stack trace — it\'s the most diagnostic information.' },
+    { check: s => !/\b(expected|should|wanted|instead)\b/i.test(s), icon: '↔️', title: 'State expected vs actual', tip: '"I expected X but got Y" is the clearest debugging format.' },
+    { check: s => !/\bv\d+\.\d+|\b(version|node|python|os)\b/i.test(s), icon: '🖥️', title: 'Add environment info', tip: 'Language version, OS, and relevant package versions narrow the root cause.' },
+    { check: s => !/\b(when|after|if i|steps?|to reproduce)\b/i.test(s), icon: '🔁', title: 'Add reproduction steps', tip: 'How do you trigger the bug? The model can reason better with a clear sequence.' },
+  ],
+  goaloriented: [
+    { check: s => !/\b(success|done when|metric|kpi|measure|by \w+day|deadline)\b/i.test(s), icon: '✅', title: 'Define success criteria', tip: 'What does "done" look like? A metric, milestone, or deliverable makes the goal concrete.' },
+    { check: s => !/\b(audience|user[s]?|customer[s]?|team|for the)\b/i.test(s), icon: '👥', title: 'Identify the audience', tip: 'Knowing who this is for shapes tone, depth, and scope significantly.' },
+    { check: s => /\b(asap|soon|quickly|eventually)\b/i.test(s), icon: '📅', title: 'Replace vague timelines', tip: '"By Friday" is actionable; "soon" isn\'t. Name the date or milestone.' },
+    { check: s => /\b(i want|i need|i would like)\b/i.test(s), icon: '🎯', title: 'Lead with the objective', tip: 'Start with the goal directly: "Produce X that achieves Y" beats "I want you to make something that..."' },
+  ],
+};
+
+// ─────────────────────────────────────────────
+//  UI
+// ─────────────────────────────────────────────
+
+const editor        = document.getElementById('editor');
+const hlLayer       = document.getElementById('highlight-layer');
+const scoreProgress = document.getElementById('score-progress');
+const scoreNumber   = document.getElementById('score-number');
+const scoreLabel_el = document.getElementById('score-label');
+const scoreDesc     = document.getElementById('score-description');
+const scoreExperimental = document.getElementById('score-experimental');
+const breakdownList = document.getElementById('breakdown-list');
+const missingList   = document.getElementById('missing-list');
+const missingSect   = document.getElementById('missing-section');
+const suggList      = document.getElementById('suggestions-list');
+const statusText    = document.getElementById('status-text');
+const wordCount     = document.getElementById('word-count');
+const comparisonSection = document.getElementById('comparison-section');
+const comparisonGrid = document.getElementById('comparison-grid');
+const crossGoalSection = document.getElementById('cross-goal-section');
+const crossGoalList = document.getElementById('cross-goal-list');
+
+const CIRCUMFERENCE = 2 * Math.PI * 28; // ~175.9
+scoreProgress.style.strokeDasharray = CIRCUMFERENCE;
+
+let debounceTimer = null;
+let lastSlots = [];
+let lastText  = '';
+let currentScoreData = null;
+let votingManagerReady = false;
+
+// Multi-goal state management
+let activeGoals = new Set(['efficient']);
+let compareMode = false;
+const ALL_GOALS = ['efficient', 'creative', 'programmatic', 'bugfixing', 'goaloriented'];
+const GOAL_NAMES = {
+  efficient: 'Efficient',
+  creative: 'Creative',
+  programmatic: 'Programmatic',
+  bugfixing: 'Bug Fix',
+  goaloriented: 'Goal-Oriented'
+};
+const GOAL_ICONS = {
+  efficient: '⚡',
+  creative: '🎨',
+  programmatic: '💻',
+  bugfixing: '🐛',
+  goaloriented: '🎯'
+};
+
+function getPrimaryGoal() {
+  return activeGoals.values().next().value || 'efficient';
+}
+
+function getAllActiveGoals() {
+  return Array.from(activeGoals);
+}
+
+function runAnalysis() {
+  const text = editor.value;
+  const goal = getGoal();
+  lastText = text;
+
+  // Word count
+  const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
+  wordCount.textContent = wc === 1 ? '1 word' : `${wc} words`;
+
+  if (!text.trim()) {
+    hlLayer.innerHTML = '';
+    updateScore(null, null);
+    breakdownList.innerHTML = '<div class="empty-state">No annotations yet</div>';
+    suggList.innerHTML      = '<div class="empty-state">No suggestions yet</div>';
+    missingSect.style.display = 'none';
+    statusText.textContent = 'Select a goal and start typing';
+    statusText.className = '';
+    return;
+  }
+
+  const slots = annotate(text, goal);
+  lastSlots = slots;
+
+  // Update highlight layer HTML
+  hlLayer.innerHTML = buildHighlightHTML(text, slots);
+
+  // Sync scroll
+  hlLayer.scrollTop  = editor.scrollTop;
+  hlLayer.scrollLeft = editor.scrollLeft;
+
+  // Score
+  const scoreData = computeScore(text, slots);
+  updateScore(scoreData, goal);
+
+  // Breakdown
+  updateBreakdown(scoreData, text, slots);
+
+  // Missing checks
+  updateMissing(text, goal);
+
+  // Suggestions
+  updateSuggestions(text, goal);
+}
+
+function updateScore(data, goal) {
+  if (!data) {
+    scoreProgress.style.strokeDashoffset = CIRCUMFERENCE;
+    scoreProgress.style.stroke = '#58a6ff';
+    scoreNumber.textContent = '—';
+    scoreLabel_el.textContent = 'Waiting…';
+    scoreDesc.textContent = 'Type a prompt to see your impact score';
+    if (scoreExperimental) scoreExperimental.style.display = 'none';
+    return;
+  }
+  const { score } = data;
+  const offset = CIRCUMFERENCE - (score / 100) * CIRCUMFERENCE;
+  scoreProgress.style.strokeDashoffset = offset;
+  scoreProgress.style.stroke = score >= 70 ? '#3fb950' : score >= 45 ? '#f0883e' : '#f85149';
+  scoreNumber.textContent = score;
+  const [lbl, desc] = scoreLabel(score);
+  scoreLabel_el.textContent = lbl;
+  scoreDesc.textContent = desc;
+  if (scoreExperimental) scoreExperimental.style.display = 'block';
+}
+
+function updateBreakdown(data, text, slots) {
+  if (!data || data.words < 3) {
+    breakdownList.innerHTML = '<div class="empty-state">Keep typing…</div>';
+    return;
+  }
+  const rows = [
+    { type: 'high-impact',  label: 'Spec / high-impact', count: data.highCount },
+    { type: 'constraint',   label: 'Hard constraint',    count: data.constraintCount },
+    { type: 'context',      label: 'Context',            count: data.contextCount },
+    { type: 'vague',        label: 'Vague',              count: data.vagueCount },
+    { type: 'filler',       label: 'Filler',             count: data.fillerCount },
+  ].filter(r => r.count > 0);
+
+  if (rows.length === 0) {
+    breakdownList.innerHTML = '<div class="empty-state">No annotations detected</div>';
+    return;
+  }
+
+  breakdownList.innerHTML = rows.map(r => `
+    <div class="breakdown-item">
+      <div class="breakdown-dot ${r.type}"></div>
+      <span>${r.label}</span>
+      <span class="breakdown-count">${r.count} word${r.count !== 1 ? 's' : ''}</span>
+    </div>`).join('');
+}
+
+function updateMissing(text, goal) {
+  const checks = MISSING_CHECKS[goal] || [];
+  const missing = checks.filter(c => !c.check(text));
+  if (missing.length === 0) {
+    missingSect.style.display = 'none';
+    return;
+  }
+  missingSect.style.display = 'block';
+  missingList.innerHTML = missing.map(m => `
+    <div class="missing-item">
+      <div class="missing-icon">!</div>
+      <div><strong style="font-size:12px;color:var(--text-bright)">${m.label}</strong><br>
+      <span style="font-size:11px;color:var(--text-muted)">${m.tip}</span></div>
+    </div>`).join('');
+}
+
+function updateSuggestions(text, goal) {
+  const pool = SUGGESTIONS[goal] || [];
+  const active = pool.filter(s => s.check(text));
+  if (active.length === 0) {
+    suggList.innerHTML = '<div class="empty-state">Looking good — no suggestions</div>';
+    return;
+  }
+  suggList.innerHTML = active.map(s => `
+    <div class="suggestion-item">
+      <div class="suggestion-icon">${s.icon}</div>
+      <div class="suggestion-text">
+        <strong>${s.title}</strong>
+        <span>${s.tip}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+//  CURSOR POSITION → STATUS BAR
+// ─────────────────────────────────────────────
+
+function updateStatusFromCursor() {
+  const pos = editor.selectionStart;
+  if (!lastSlots.length || pos < 0) return;
+  const ann = lastSlots[pos] || lastSlots[Math.max(0, pos - 1)];
+  if (ann) {
+    statusText.textContent = `${ann.label} — ${ann.tooltip}`;
+    statusText.className = `is-${ann.type}`;
+  } else {
+    statusText.textContent = `Goal: ${getPrimaryGoal()}`;
+    statusText.className = '';
+  }
+}
+
+// ─────────────────────────────────────────────
+//  EVENT WIRING
+// ─────────────────────────────────────────────
+
+editor.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(runAnalysis, 150);
+  
+  // Update vote button states for new prompt
+  setTimeout(updateVoteButtons, 160);
+});
+
+editor.addEventListener('scroll', () => {
+  hlLayer.scrollTop  = editor.scrollTop;
+  hlLayer.scrollLeft = editor.scrollLeft;
+});
+
+editor.addEventListener('keyup',   updateStatusFromCursor);
+editor.addEventListener('click',   updateStatusFromCursor);
+editor.addEventListener('mouseup', updateStatusFromCursor);
+
+// Multi-goal toggle handlers
+document.querySelectorAll('.goal-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const goal = btn.dataset.goal;
+    
+    if (compareMode) {
+      // In compare mode, toggle without affecting others
+      if (activeGoals.has(goal)) {
+        if (activeGoals.size > 1) activeGoals.delete(goal);
+      } else {
+        activeGoals.add(goal);
+      }
+    } else {
+      // Single mode - only one active
+      activeGoals.clear();
+      activeGoals.add(goal);
+    }
+    
+    updateGoalButtons();
+    if (editor.value.trim()) runAnalysis();
+  });
+});
+
+// Compare all button
+document.getElementById('compare-all-btn').addEventListener('click', () => {
+  compareMode = !compareMode;
+  const btn = document.getElementById('compare-all-btn');
+  
+  if (compareMode) {
+    btn.classList.add('active');
+    btn.textContent = '📊 Comparing';
+    activeGoals = new Set(ALL_GOALS); // Select all goals
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '📊 Compare';
+    activeGoals = new Set([getPrimaryGoal()]); // Keep only primary
+  }
+  
+  updateGoalButtons();
+  if (editor.value.trim()) runAnalysis();
+});
+
+function updateGoalButtons() {
+  document.querySelectorAll('.goal-btn').forEach(btn => {
+    if (activeGoals.has(btn.dataset.goal)) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+// Multi-goal analysis
+function analyzeAllGoals(text) {
+  const results = {};
+  for (const goal of ALL_GOALS) {
+    const slots = annotate(text, goal);
+    const scoreData = computeScore(text, slots);
+    results[goal] = { slots, scoreData };
+  }
+  return results;
+}
+
+function updateComparisonView(results) {
+  if (!compareMode || !results) {
+    comparisonSection.style.display = 'none';
+    return;
+  }
+  
+  comparisonSection.style.display = 'block';
+  
+  // Build comparison grid
+  const gridHTML = ALL_GOALS.map(goal => {
+    const data = results[goal].scoreData;
+    if (!data) return '';
+    
+    const score = data.score;
+    let scoreClass = 'weak';
+    if (score >= 85) scoreClass = 'excellent';
+    else if (score >= 70) scoreClass = 'strong';
+    else if (score >= 50) scoreClass = 'moderate';
+    
+    const isActive = activeGoals.has(goal);
+    
+    return `
+      <div class="comparison-item ${isActive ? 'active' : ''}" data-goal="${goal}" onclick="toggleGoalInCompare('${goal}')">
+        <div class="comparison-goal">${GOAL_ICONS[goal]} ${GOAL_NAMES[goal]}</div>
+        <div class="comparison-score ${scoreClass}">${score}</div>
+        <div class="comparison-label">${getScoreLabelShort(score)}</div>
+      </div>
+    `;
+  }).join('');
+  
+  comparisonGrid.innerHTML = gridHTML;
+  
+  // Build cross-goal insights
+  updateCrossGoalInsights(results);
+}
+
+function getScoreLabelShort(score) {
+  if (score >= 85) return 'Excellent';
+  if (score >= 70) return 'Strong';
+  if (score >= 50) return 'Moderate';
+  if (score >= 30) return 'Weak';
+  return 'Low';
+}
+
+function toggleGoalInCompare(goal) {
+  if (!compareMode) return;
+  
+  if (activeGoals.has(goal)) {
+    if (activeGoals.size > 1) activeGoals.delete(goal);
+  } else {
+    activeGoals.add(goal);
+  }
+  
+  updateGoalButtons();
+  if (editor.value.trim()) runAnalysis();
+}
+
+function updateCrossGoalInsights(results) {
+  const insights = [];
+  
+  // Find high-scoring goals
+  const highScoring = ALL_GOALS.filter(g => results[g].scoreData?.score >= 70);
+  const lowScoring = ALL_GOALS.filter(g => results[g].scoreData?.score < 50);
+  
+  if (highScoring.length > 1) {
+    insights.push({
+      text: `Strong across ${highScoring.length} goals`,
+      type: 'positive',
+      goals: highScoring
+    });
+  }
+  
+  if (lowScoring.length > 0) {
+    insights.push({
+      text: `Weak for ${lowScoring.map(g => GOAL_NAMES[g]).join(', ')}`,
+      type: 'warning',
+      goals: lowScoring
+    });
+  }
+  
+  // Find biggest gap
+  const scores = ALL_GOALS.map(g => ({ goal: g, score: results[g].scoreData?.score || 0 }));
+  scores.sort((a, b) => b.score - a.score);
+  if (scores[0].score - scores[scores.length - 1].score > 30) {
+    insights.push({
+      text: `Biggest gap: ${scores[0].score - scores[scores.length-1].score} points`,
+      type: 'info',
+      goals: [scores[0].goal, scores[scores.length-1].goal]
+    });
+  }
+  
+  // Universal suggestions (present in all active goals)
+  const universal = findUniversalSuggestions(results);
+  if (universal.length > 0) {
+    insights.push({
+      text: `All goals: ${universal[0].title}`,
+      type: 'action',
+      goals: ALL_GOALS
+    });
+  }
+  
+  if (insights.length > 0) {
+    crossGoalSection.style.display = 'block';
+    crossGoalList.innerHTML = insights.map(i => `
+      <div class="overlap-item">
+        <span>${i.type === 'positive' ? '✅' : i.type === 'warning' ? '⚠️' : i.type === 'action' ? '💡' : 'ℹ️'} ${i.text}</span>
+        <div class="overlap-goals">
+          ${i.goals.map(g => `<span class="overlap-goal-tag ${g}">${GOAL_NAMES[g]}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  } else {
+    crossGoalSection.style.display = 'none';
+  }
+}
+
+function findUniversalSuggestions(results) {
+  // Simple implementation - find suggestions that apply to multiple goals
+  const allSuggestions = [];
+  ALL_GOALS.forEach(goal => {
+    const pool = SUGGESTIONS[goal] || [];
+    const active = pool.filter(s => s.check(lastText));
+    allSuggestions.push(...active.map(s => ({ ...s, goal })));
+  });
+  
+  // Count occurrences
+  const counts = {};
+  allSuggestions.forEach(s => {
+    const key = s.title;
+    if (!counts[key]) counts[key] = { count: 0, suggestion: s };
+    counts[key].count++;
+  });
+  
+  // Return suggestions that appear in multiple goals
+  return Object.values(counts)
+    .filter(c => c.count >= 2)
+    .map(c => c.suggestion);
+}
+
+// Override runAnalysis to support multi-goal
+const originalRunAnalysis = runAnalysis;
+runAnalysis = function() {
+  const text = editor.value;
+  lastText = text;
+  
+  // Word count
+  const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
+  wordCount.textContent = wc === 1 ? '1 word' : `${wc} words`;
+  
+  if (!text.trim()) {
+    hlLayer.innerHTML = '';
+    updateScore(null, null);
+    breakdownList.innerHTML = '<div class="empty-state">No annotations yet</div>';
+    suggList.innerHTML      = '<div class="empty-state">No suggestions yet</div>';
+    missingSect.style.display = 'none';
+    comparisonSection.style.display = 'none';
+    statusText.textContent = 'Select goals and start typing';
+    statusText.className = '';
+    return;
+  }
+  
+  // Analyze all goals for comparison
+  const allResults = analyzeAllGoals(text);
+  updateComparisonView(allResults);
+  
+  // Primary analysis for highlighting (use first active goal)
+  const primaryGoal = getPrimaryGoal();
+  const slots = annotate(text, primaryGoal);
+  lastSlots = slots;
+  
+  // Update highlight layer HTML
+  hlLayer.innerHTML = buildHighlightHTML(text, slots);
+  
+  // Sync scroll
+  hlLayer.scrollTop  = editor.scrollTop;
+  hlLayer.scrollLeft = editor.scrollLeft;
+  
+  // Score (show primary goal score)
+  const scoreData = computeScore(text, slots);
+  updateScore(scoreData, primaryGoal);
+  
+  // Combined breakdown from all active goals
+  updateMultiGoalBreakdown(allResults);
+  
+  // Combined missing checks
+  updateMultiGoalMissing(text);
+  
+  // Combined suggestions
+  updateMultiGoalSuggestions(text);
+};
+
+function updateMultiGoalBreakdown(allResults) {
+  // Aggregate annotation counts across active goals
+  const counts = { highCount: 0, constraintCount: 0, contextCount: 0, vagueCount: 0, fillerCount: 0 };
+  
+  for (const goal of activeGoals) {
+    const data = allResults[goal]?.scoreData;
+    if (data) {
+      counts.highCount = Math.max(counts.highCount, data.highCount);
+      counts.constraintCount = Math.max(counts.constraintCount, data.constraintCount);
+      counts.contextCount = Math.max(counts.contextCount, data.contextCount);
+      counts.vagueCount = Math.max(counts.vagueCount, data.vagueCount);
+      counts.fillerCount = Math.max(counts.fillerCount, data.fillerCount);
+    }
+  }
+  
+  const rows = [
+    { type: 'high-impact',  label: 'Spec / high-impact', count: counts.highCount },
+    { type: 'constraint',   label: 'Hard constraint',    count: counts.constraintCount },
+    { type: 'context',      label: 'Context',            count: counts.contextCount },
+    { type: 'vague',        label: 'Vague',              count: counts.vagueCount },
+    { type: 'filler',       label: 'Filler',             count: counts.fillerCount },
+  ].filter(r => r.count > 0);
+  
+  if (rows.length === 0) {
+    breakdownList.innerHTML = '<div class="empty-state">No annotations detected</div>';
+    return;
+  }
+  
+  breakdownList.innerHTML = rows.map(r => `
+    <div class="breakdown-item">
+      <div class="breakdown-dot ${r.type}"></div>
+      <span>${r.label}</span>
+      <span class="breakdown-count">${r.count} word${r.count !== 1 ? 's' : ''}</span>
+    </div>`).join('');
+}
+
+function updateMultiGoalMissing(text) {
+  const allMissing = [];
+  
+  for (const goal of activeGoals) {
+    const checks = MISSING_CHECKS[goal] || [];
+    const missing = checks.filter(c => !c.check(text));
+    allMissing.push(...missing.map(m => ({ ...m, goal })));
+  }
+  
+  // Deduplicate by label
+  const seen = new Set();
+  const unique = allMissing.filter(m => {
+    if (seen.has(m.label)) return false;
+    seen.add(m.label);
+    return true;
+  });
+  
+  if (unique.length === 0) {
+    missingSect.style.display = 'none';
+    return;
+  }
+  
+  missingSect.style.display = 'block';
+  missingList.innerHTML = unique.map(m => `
+    <div class="missing-item">
+      <div class="missing-icon">!</div>
+      <div><strong style="font-size:12px;color:var(--text-bright)">${m.label}</strong><br>
+      <span style="font-size:11px;color:var(--text-muted)">${m.tip}</span></div>
+    </div>`).join('');
+}
+
+function updateMultiGoalSuggestions(text) {
+  const allActive = [];
+  
+  for (const goal of activeGoals) {
+    const pool = SUGGESTIONS[goal] || [];
+    const active = pool.filter(s => s.check(text));
+    allActive.push(...active.map(s => ({ ...s, goal })));
+  }
+  
+  // Deduplicate by title
+  const seen = new Set();
+  const unique = allActive.filter(s => {
+    if (seen.has(s.title)) return false;
+    seen.add(s.title);
+    return true;
+  });
+  
+  if (unique.length === 0) {
+    suggList.innerHTML = '<div class="empty-state">Looking good — no suggestions</div>';
+    return;
+  }
+  
+  suggList.innerHTML = unique.map(s => `
+    <div class="suggestion-item">
+      <div class="suggestion-icon">${s.icon}</div>
+      <div class="suggestion-text">
+        <strong>${s.title}</strong>
+        <span>${s.tip}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+//  FEEDBACK COLLECTION & LEARNED SCORING (v1.2)
+// ─────────────────────────────────────────────
+
+// Feedback state
+const feedbackSection = document.getElementById('feedback-section');
+const feedbackUp = document.getElementById('feedback-up');
+const feedbackDown = document.getElementById('feedback-down');
+const feedbackOllama = document.getElementById('feedback-ollama');
+const ollamaStatus = document.getElementById('ollama-status');
+const ollamaResult = document.getElementById('ollama-result');
+const confidenceDisplay = document.getElementById('confidence-display');
+const confidenceText = document.getElementById('confidence-text');
+const confidenceBadge = document.getElementById('confidence-badge');
+
+// Learned model weights (will be updated from localStorage or server)
+let learnedWeights = {
+  // Default: approximate current heuristic as baseline
+  intercept: 40,
+  highImpact: 1.6,    // 2 * 80 / 100 = 1.6 scaled
+  constraint: 1.6,
+  context: 0.96,      // 1.2 * 80 / 100 = 0.96
+  vague: -0.6,        // -1.0 * 60 / 100 = -0.6
+  filler: -0.9,       // -1.5 * 60 / 100 = -0.9
+  wordCountNorm: 0    // neutral baseline
+};
+
+// Load learned weights from localStorage if available
+try {
+  const saved = localStorage.getItem('promptLensWeights');
+  if (saved) {
+    learnedWeights = JSON.parse(saved);
+    console.log('Loaded learned weights:', learnedWeights);
+  }
+} catch (e) {
+  console.warn('Could not load learned weights:', e);
+}
+
+// Feature extraction for learning
+function extractLearningFeatures(text, slots) {
+  const words = text.trim().split(/\s+/).length;
+  
+  let highCount = 0, constraintCount = 0, contextCount = 0, vagueCount = 0, fillerCount = 0;
+  let i = 0;
+  while (i < text.length) {
+    const ann = slots[i];
+    if (ann !== null) {
+      let j = i;
+      while (j < text.length && slots[j] === ann) j++;
+      const span = text.slice(i, j).trim().split(/\s+/).length;
+      if (ann.type === 'high-impact') highCount += span;
+      if (ann.type === 'constraint') constraintCount += span;
+      if (ann.type === 'context') contextCount += span;
+      if (ann.type === 'vague') vagueCount += span;
+      if (ann.type === 'filler') fillerCount += span;
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  
+  return {
+    highImpact: highCount,
+    constraint: constraintCount,
+    context: contextCount,
+    vague: vagueCount,
+    filler: fillerCount,
+    wordCount: words,
+    wordCountNorm: words / 100, // normalize
+    hasFormat: /\b(json|xml|yaml|csv|markdown|table|list|bullet|numbered)\b/i.test(text),
+    hasExample: /\b(example|for instance|e\.g\.|such as|like this)\b/i.test(text),
+    hasConstraintWord: /\b(must|only|never|exactly|no more than|at least|required)\b/i.test(text),
+    questionCount: (text.match(/\?/g) || []).length
+  };
+}
+
+// Learned scoring function
+function computeLearnedScore(features) {
+  const w = learnedWeights;
+  let score = w.intercept;
+  score += features.highImpact * w.highImpact;
+  score += features.constraint * w.constraint;
+  score += features.context * w.context;
+  score += features.vague * w.vague;
+  score += features.filler * w.filler;
+  
+  // Normalize to 0-100
+  score = Math.max(0, Math.min(100, score));
+  return Math.round(score);
+}
+
+// Confidence interval based on sample size
+function computeConfidenceInterval(score, sampleSize) {
+  const n = Math.max(sampleSize, getFeedbackCount());
+  
+  // Simplified approach: margin of error decreases with sqrt(n)
+  // At n=0: ±25 points (very uncertain)
+  // At n=30: ±15 points
+  // At n=100: ±10 points
+  // At n=500: ±5 points
+  const margin = Math.round(25 / Math.sqrt(1 + n / 10));
+  
+  const lower = Math.max(0, score - margin);
+  const upper = Math.min(100, score + margin);
+  
+  let confidence = 'low';
+  if (n >= 100) confidence = 'high';
+  else if (n >= 30) confidence = 'medium';
+  
+  return { score, lower, upper, confidence, n };
+}
+
+// Feedback storage
+function getStoredFeedback() {
+  try {
+    return JSON.parse(localStorage.getItem('promptLensFeedback') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveFeedback(entry) {
+  const feedback = getStoredFeedback();
+  entry.timestamp = Date.now();
+  entry.id = `${entry.timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+  feedback.push(entry);
+  
+  // Keep only last 1000 entries
+  if (feedback.length > 1000) {
+    feedback.shift();
+  }
+  
+  localStorage.setItem('promptLensFeedback', JSON.stringify(feedback));
+  updateFeedbackCounts();
+  return entry;
+}
+
+function getFeedbackCount() {
+  return getStoredFeedback().length;
+}
+
+function getFeedbackForPrompt(promptHash) {
+  return getStoredFeedback().filter(f => f.promptHash === promptHash);
+}
+
+// Simple hash function for prompts
+function hashPrompt(text) {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+}
+
+// Update feedback UI - Integrated with VotingManager
+function updateFeedbackUI(text) {
+  if (!text.trim()) {
+    feedbackSection.style.display = 'none';
+    return;
+  }
+  
+  feedbackSection.style.display = 'block';
+  
+  // Use the new VotingManager system
+  updateVoteButtons();
+}
+
+function updateFeedbackCounts() {
+  const total = getFeedbackCount();
+  console.log(`Total feedback collected: ${total}`);
+}
+
+// Feedback button handlers - using VotingManager (one vote per prompt)
+feedbackUp.addEventListener('click', () => {
+  recordVote('up');
+});
+
+feedbackDown.addEventListener('click', () => {
+  recordVote('down');
+});
+
+// ─────────────────────────────────────────────
+//  OLLAMA INTEGRATION
+// ─────────────────────────────────────────────
+
+const OLLAMA_BASE = 'http://localhost:11434';
+let ollamaConnected = false;
+let ollamaModels    = [];
+let selectedModel   = '';
+
+const ollamaDot         = document.getElementById('ollama-dot');
+const ollamaHeaderLabel = document.getElementById('ollama-header-label');
+const ollamaModelSelect = document.getElementById('ollama-model-select');
+
+function setOllamaStatus(state, label) {
+  ollamaDot.className = `ollama-dot ${state}`;
+  ollamaHeaderLabel.textContent = label;
+}
+
+function getFileProtocolTip() {
+  if (window.location.protocol !== 'file:') return '';
+  return `
+    <div class="ollama-cors-tip">
+      <strong>CORS fix needed</strong> — browsers block <code>file://</code> → <code>localhost</code> requests.<br>
+      Serve this file instead:<br>
+      <code>cd "${window.location.pathname.replace(/\/[^/]+$/, '').replace(/^\//, '')}"</code><br>
+      <code>python -m http.server 8080</code><br>
+      Then open <code>http://localhost:8080</code>
+    </div>`;
+}
+
+async function initOllama() {
+  setOllamaStatus('checking', 'Checking Ollama…');
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
+      signal: AbortSignal.timeout(2500)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    ollamaModels = (data.models || []).map(m => m.name);
+
+    if (ollamaModels.length === 0) {
+      setOllamaStatus('disconnected', 'Ollama: no models');
+      ollamaConnected = false;
+      return;
+    }
+
+    // Populate model selector
+    ollamaModelSelect.innerHTML = ollamaModels.map(m =>
+      `<option value="${m}">${m.replace(':latest', '')}</option>`
+    ).join('');
+    ollamaModelSelect.style.display = 'block';
+
+    // Prefer a sensible default
+    const preferred = ['llama3.2', 'llama3', 'llama3.1', 'mistral', 'phi3', 'gemma2'];
+    selectedModel = ollamaModels.find(m => preferred.some(p => m.startsWith(p))) || ollamaModels[0];
+    ollamaModelSelect.value = selectedModel;
+
+    ollamaConnected = true;
+    setOllamaStatus('connected', `Ollama`);
+    console.log(`PromptLens: Ollama connected. Models: ${ollamaModels.join(', ')}`);
+
+  } catch (e) {
+    ollamaConnected = false;
+    const isFileProt = window.location.protocol === 'file:';
+    const isCors = e instanceof TypeError && (e.message.includes('fetch') || e.message.includes('NetworkError') || e.message.includes('CORS'));
+    if (isFileProt) {
+      setOllamaStatus('disconnected', 'Ollama: serve file locally');
+    } else if (isCors) {
+      setOllamaStatus('disconnected', 'Ollama: CORS blocked');
+      console.warn('Ollama CORS error — run: set OLLAMA_ORIGINS=* && ollama serve (Windows) or OLLAMA_ORIGINS=* ollama serve (Mac/Linux)');
+    } else {
+      setOllamaStatus('disconnected', 'Ollama offline');
+    }
+    console.log('Ollama not reachable:', e.message);
+  }
+}
+
+ollamaModelSelect.addEventListener('change', () => {
+  selectedModel = ollamaModelSelect.value;
+});
+
+async function analyzeWithOllama(prompt, goal) {
+  if (!ollamaConnected || !selectedModel) throw new Error('Ollama not connected');
+
+  const rubrics = {
+    efficient:    { dims: ['clarity','conciseness','specificity'],          criteria: 'Evaluate how clear, concise, and specific this prompt is for efficient LLM output.' },
+    creative:     { dims: ['originality','style_guidance','engagement'],    criteria: 'Evaluate how well this prompt guides creative, original, and engaging content.' },
+    programmatic: { dims: ['specificity','technical_clarity','completeness'],criteria: 'Evaluate how specific, technically clear, and complete this coding prompt is.' },
+    bugfixing:    { dims: ['diagnostic_info','reproducibility','context'],  criteria: 'Evaluate how well this bug report provides diagnostic info and reproducibility.' },
+    goaloriented: { dims: ['goal_clarity','success_criteria','audience'],   criteria: 'Evaluate how clear the goals, success criteria, and audience awareness are.' },
+  };
+  const rubric = rubrics[goal] || rubrics.efficient;
+
+  const systemPrompt = `You are a prompt engineering expert. ${rubric.criteria}
+Rate each dimension (${rubric.dims.join(', ')}) from 1-10, give an overall 1-100 score, and one sentence of reasoning.
+Respond ONLY with valid JSON: {"dimensions":{"dim":score,...},"overall":score,"reasoning":"..."}`;
+
+  const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model:  selectedModel,
+      system: systemPrompt,
+      prompt: `Evaluate this prompt (goal: ${goal}):\n\n${prompt}`,
+      stream: false,
+      format: 'json'
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const result = await res.json();
+  return JSON.parse(result.response);
+}
+
+async function checkOllamaAvailability() {
+  return ollamaConnected;
+}
+
+feedbackOllama.addEventListener('click', async () => {
+  if (feedbackOllama.dataset.judgeMode) return; // LLMJudge onclick handler takes over
+  const text = editor.value;
+  if (!text.trim()) return;
+  
+  feedbackOllama.disabled = true;
+  ollamaStatus.style.display = 'block';
+  ollamaStatus.textContent = '🔄 Checking Ollama...';
+  ollamaResult.style.display = 'none';
+  
+  // Re-check in case status changed since load
+  if (!ollamaConnected) await initOllama();
+
+  if (!ollamaConnected) {
+    ollamaStatus.innerHTML = `
+      <div style="color:#f0883e;">
+        ❌ Ollama not found on ${OLLAMA_BASE}
+        ${getFileProtocolTip()}
+        <div style="margin-top:6px;font-size:11px;line-height:1.6;">
+          <strong>Is Ollama running?</strong> If yes, it may be blocking browser requests (CORS).<br>
+          Restart it with origins allowed:<br>
+          <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px;color:#58a6ff;">set OLLAMA_ORIGINS=* &amp;&amp; ollama serve</code> (Windows)<br>
+          <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px;color:#58a6ff;">OLLAMA_ORIGINS=* ollama serve</code> (Mac/Linux)
+        </div>
+        <div style="margin-top:6px;font-size:10px;opacity:0.8;">
+          No Ollama? <a href="https://ollama.com/download" target="_blank" style="color:#58a6ff;">Download</a>
+          then run: <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px;font-family:monospace;color:#58a6ff;">ollama pull llama3.2</code>
+        </div>
+      </div>`;
+    feedbackOllama.disabled = false;
+    return;
+  }
+  
+  ollamaStatus.textContent = '🧠 Analyzing with local LLM...';
+  
+  try {
+    ollamaStatus.textContent = `🧠 Analyzing with ${selectedModel.replace(':latest','')}…`;
+    const analysis = await analyzeWithOllama(text, getPrimaryGoal());
+    
+    // Display result
+    const dimHtml = Object.entries(analysis.dimensions || {})
+      .map(([dim, score]) => `
+        <div class="ollama-score-row">
+          <span class="ollama-score-label">${dim.replace(/_/g, ' ')}:</span>
+          <span class="ollama-score-value">${score}/10</span>
+        </div>
+      `).join('');
+    
+    ollamaResult.innerHTML = `
+      <div class="ollama-result-box">
+        <div class="ollama-score-row" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
+          <span class="ollama-score-label">Overall:</span>
+          <span class="ollama-score-value" style="color: ${analysis.overall >= 70 ? '#3fb950' : analysis.overall >= 50 ? '#f0883e' : '#f85149'}">${analysis.overall}/100</span>
+        </div>
+        ${dimHtml}
+        <div class="ollama-reasoning">${analysis.reasoning}</div>
+      </div>
+    `;
+    ollamaResult.style.display = 'block';
+    ollamaStatus.textContent = '✅ Analysis complete';
+    
+    // Store this as feedback too
+    saveFeedback({
+      promptHash: hashPrompt(text),
+      prompt: text,
+      features: extractLearningFeatures(text, lastSlots),
+      systemScore: computeLearnedScore(extractLearningFeatures(text, lastSlots)),
+      ollamaScore: analysis.overall,
+      ollamaDimensions: analysis.dimensions,
+      rating: analysis.overall >= 70 ? 1 : analysis.overall >= 50 ? 0 : -1,
+      goal: getPrimaryGoal(),
+      source: 'ollama'
+    });
+    
+  } catch (e) {
+    ollamaStatus.textContent = `❌ Error: ${e.message}`;
+  } finally {
+    feedbackOllama.disabled = false;
+  }
+});
+
+// Simple online learning: adjust weights based on feedback
+function updateWeightsFromFeedback() {
+  const feedback = getStoredFeedback();
+  if (feedback.length < 50) {
+    console.log('Not enough feedback to update weights yet (need 50+, have', feedback.length, ')');
+    return;
+  }
+  
+  // Simple gradient descent adjustment
+  const learningRate = 0.01;
+  const w = { ...learnedWeights };
+  let totalError = 0;
+  
+  feedback.forEach(entry => {
+    if (!entry.features || entry.rating === undefined) return;
+    
+    const f = entry.features;
+    const predicted = computeLearnedScore(f);
+    const actual = entry.rating === 1 ? 85 : entry.rating === -1 ? 35 : 60; // Convert rating to target score
+    const error = actual - predicted;
+    totalError += Math.abs(error);
+    
+    // Update weights (simplified gradient descent)
+    w.highImpact += learningRate * error * f.highImpact * 0.01;
+    w.constraint += learningRate * error * f.constraint * 0.01;
+    w.context += learningRate * error * f.context * 0.01;
+    w.vague += learningRate * error * f.vague * 0.01;
+    w.filler += learningRate * error * f.filler * 0.01;
+    w.intercept += learningRate * error;
+  });
+  
+  // Clamp weights to reasonable ranges
+  w.highImpact = Math.max(0, Math.min(5, w.highImpact));
+  w.constraint = Math.max(0, Math.min(5, w.constraint));
+  w.context = Math.max(0, Math.min(3, w.context));
+  w.vague = Math.max(-3, Math.min(0, w.vague));
+  w.filler = Math.max(-3, Math.min(0, w.filler));
+  w.intercept = Math.max(0, Math.min(100, w.intercept));
+  
+  learnedWeights = w;
+  localStorage.setItem('promptLensWeights', JSON.stringify(w));
+  
+  const avgError = totalError / feedback.length;
+  console.log(`Updated weights from ${feedback} samples. Avg error: ${avgError.toFixed(2)}`);
+  console.log('New weights:', w);
+}
+
+// Update weights periodically
+setInterval(updateWeightsFromFeedback, 30000); // Every 30 seconds
+
+// Override computeScore to use learned model with confidence
+const originalComputeScore = computeScore;
+computeScore = function(text, slots) {
+  const features = extractLearningFeatures(text, slots);
+  const learned = computeLearnedScore(features);
+  const confidence = computeConfidenceInterval(learned, getFeedbackCount());
+  
+  // Return both heuristic and learned for comparison
+  const heuristic = originalComputeScore(text, slots);
+  
+  return {
+    score: learned,
+    heuristicScore: heuristic.score,
+    highCount: features.highImpact,
+    constraintCount: features.constraint,
+    contextCount: features.context,
+    vagueCount: features.vague,
+    fillerCount: features.filler,
+    words: features.wordCount,
+    confidence
+  };
+};
+
+// Update score display to show confidence
+const originalUpdateScore = updateScore;
+updateScore = function(data, goal) {
+  if (!data) {
+    originalUpdateScore(data, goal);
+    confidenceDisplay.style.display = 'none';
+    return;
+  }
+  
+  // Show main score
+  const { score } = data;
+  const offset = CIRCUMFERENCE - (score / 100) * CIRCUMFERENCE;
+  scoreProgress.style.strokeDashoffset = offset;
+  scoreProgress.style.stroke = score >= 70 ? '#3fb950' : score >= 45 ? '#f0883e' : '#f85149';
+  scoreNumber.textContent = score;
+  
+  const [lbl, desc] = scoreLabel(score);
+  scoreLabel_el.textContent = lbl;
+  scoreDesc.textContent = desc;
+  
+  // Show confidence interval
+  if (data.confidence) {
+    const { lower, upper, confidence, n } = data.confidence;
+    confidenceText.textContent = `Score: ${score} (${lower}-${upper})`;
+    confidenceBadge.textContent = confidence;
+    confidenceBadge.className = `confidence-${confidence}`;
+    confidenceBadge.style.padding = '2px 6px';
+    confidenceBadge.style.borderRadius = '4px';
+    confidenceBadge.style.fontSize = '9px';
+    confidenceBadge.style.textTransform = 'uppercase';
+    confidenceDisplay.style.display = 'block';
+    
+    // Update or create sample size badge
+    let sampleBadge = document.getElementById('sample-badge');
+    if (!sampleBadge) {
+      sampleBadge = document.createElement('span');
+      sampleBadge.id = 'sample-badge';
+      confidenceDisplay.appendChild(sampleBadge);
+    }
+    sampleBadge.textContent = ` n=${n}`;
+    sampleBadge.style.marginLeft = '6px';
+    sampleBadge.style.opacity = '0.7';
+    
+    // Add tooltip for low confidence
+    if (confidence === 'low') {
+      confidenceDisplay.title = `Low confidence: Need more feedback samples (currently ${n})`;
+    } else if (confidence === 'medium') {
+      confidenceDisplay.title = `Medium confidence: Score range estimates are improving (${n} samples)`;
+    } else {
+      confidenceDisplay.title = `High confidence: Score estimates are reliable (${n}+ samples)`;
+    }
+  }
+  
+  if (scoreExperimental) {
+    scoreExperimental.style.display = 'block';
+    scoreExperimental.innerHTML = `⚠️ Learned model (heuristic: ${data.heuristicScore}) — correlation being validated`;
+  }
+  
+  // Update feedback UI (safely)
+  if (typeof updateFeedbackUI === 'function') {
+    updateFeedbackUI(editor.value);
+  }
+};
+
+// Export feedback data function (for manual export/import)
+window.exportFeedbackData = function() {
+  const data = {
+    feedback: getStoredFeedback(),
+    weights: learnedWeights,
+    exportedAt: new Date().toISOString(),
+    version: '1.2.0'
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `promptlens-feedback-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  return `Exported ${data.feedback.length} feedback entries`;
+};
+
+window.importFeedbackData = function(jsonString) {
+  try {
+    const data = JSON.parse(jsonString);
+    if (data.feedback) {
+      const existing = getStoredFeedback();
+      const merged = [...existing, ...data.feedback];
+      localStorage.setItem('promptLensFeedback', JSON.stringify(merged.slice(-1000)));
+    }
+    if (data.weights) {
+      learnedWeights = data.weights;
+      localStorage.setItem('promptLensWeights', JSON.stringify(data.weights));
+    }
+    updateWeightsFromFeedback();
+    return `Imported successfully. Total: ${getFeedbackCount()} entries`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+};
+
+// Copy JSON export — full prompt + scoring + analytics for optimizer
+document.getElementById('copy-json-btn').addEventListener('click', function() {
+  const text = editor.value.trim();
+  if (!text) {
+    alert('No prompt to export — type something first.');
+    return;
+  }
+
+  const primaryGoal = getPrimaryGoal();
+  const slots = lastSlots;
+  const scoreData = computeScore(text, slots);
+  const features = extractLearningFeatures(text, slots);
+  const learnedScore = computeLearnedScore(features);
+  const confidence = computeConfidenceInterval(learnedScore, getFeedbackCount());
+
+  // Collect per-goal scores
+  const allGoalScores = {};
+  for (const goal of ALL_GOALS) {
+    const s = annotate(text, goal);
+    const d = computeScore(text, s);
+    allGoalScores[goal] = {
+      score: d.score,
+      label: getScoreLabelShort(d.score),
+      annotations: {
+        highImpact: d.highCount,
+        constraints: d.constraintCount,
+        context: d.contextCount,
+        vague: d.vagueCount,
+        filler: d.fillerCount
+      }
+    };
+  }
+
+  // Collect annotation details for primary goal
+  const annotationDetails = [];
+  let i = 0;
+  while (i < slots.length) {
+    if (slots[i]) {
+      const ann = slots[i];
+      let end = i + 1;
+      while (end < slots.length && slots[end] === ann) end++;
+      annotationDetails.push({
+        text: text.slice(i, end),
+        type: ann.type,
+        label: ann.label,
+        tooltip: ann.tooltip
+      });
+      i = end;
+    } else {
+      i++;
+    }
+  }
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    version: '1.2.0',
+    prompt: text,
+    wordCount: text.trim().split(/\s+/).length,
+    activeGoals: Array.from(activeGoals),
+    primaryGoal: primaryGoal,
+    compareMode: compareMode,
+    scoring: {
+      primary: {
+        goal: primaryGoal,
+        score: scoreData.score,
+        label: getScoreLabelShort(scoreData.score),
+        annotations: {
+          highImpact: scoreData.highCount,
+          constraints: scoreData.constraintCount,
+          context: scoreData.contextCount,
+          vague: scoreData.vagueCount,
+          filler: scoreData.fillerCount
+        }
+      },
+      allGoals: allGoalScores,
+      learned: {
+        score: learnedScore,
+        confidence: confidence.confidence,
+        lower: confidence.lower,
+        upper: confidence.upper,
+        sampleSize: confidence.n
+      },
+      weights: learnedWeights,
+      features: features
+    },
+    annotationDetails: annotationDetails
+  };
+
+  const json = JSON.stringify(payload, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    const btn = document.getElementById('copy-json-btn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '⬇ Copy JSON';
+      btn.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copy-json-btn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '⬇ Copy JSON';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+});
+
+// Console helpers
+console.log('%c🔬 PromptLens v1.2 with LLM-as-Judge Validation', 'font-size: 14px; font-weight: bold; color: #58a6ff;');
+console.log('%cValidation Commands:', 'font-weight: bold;');
+console.log('  voteStats()              - Show voting statistics');
+console.log('  validationReport()       - Show correlation between scores and votes');
+console.log('  exportValidationData()   - Export all validation data to JSON');
+console.log('  clearValidationData()    - Clear all votes (destructive)');
+console.log('%cLLM-as-Judge Commands:', 'font-weight: bold;');
+console.log('  llmJudge.evaluatePrompt(prompt, goal) - Get LLM evaluation');
+console.log('  hasVoted()               - Check if current prompt has been voted');
+console.log('%cCurrent Status:', 'font-weight: bold;');
+setTimeout(() => {
+  console.log('  Votes recorded:', VotingManager.getStats().total);
+  console.log('  Agreement rate:', VotingManager.getStats().agreement + '%');
+}, 0);
+
+// Console command implementations
+window.voteStats = function() {
+  const stats = VotingManager.getStats();
+  console.table({
+    'Total Votes': stats.total,
+    '👍 Upvotes': stats.upvotes,
+    '👎 Downvotes': stats.downvotes,
+    'Agreement %': stats.agreement + '%'
+  });
+  return stats;
+};
+
+window.validationReport = function() {
+  const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+  const rated = store.entries.filter(e => e.userRating !== null);
+  
+  if (rated.length < 5) {
+    console.log(`%cNeed ${5 - rated.length} more votes to calculate correlation`, 'color: #f0883e;');
+    return;
+  }
+  
+  // Calculate correlations
+  const hScores = rated.map(e => e.heuristicScore);
+  const ratings = rated.map(e => e.userRating);
+  const hCorrelation = calculatePearson(hScores, ratings);
+  
+  const llmRated = rated.filter(e => e.llmScore !== null);
+  let llmCorrelation = null;
+  if (llmRated.length >= 5) {
+    const lScores = llmRated.map(e => e.llmScore);
+    const lRatings = llmRated.map(e => e.userRating);
+    llmCorrelation = calculatePearson(lScores, lRatings);
+  }
+  
+  console.log('%c=== VALIDATION REPORT ===', 'font-size: 14px; font-weight: bold; color: #58a6ff;');
+  console.log(`Total samples: ${rated.length}`);
+  console.log(`LLM-evaluated samples: ${llmRated.length}`);
+  console.log('');
+  console.log('%cScore Correlation with User Success:', 'font-weight: bold;');
+  console.log(`  Heuristic score: ${hCorrelation.toFixed(3)} (${getCorrelationQuality(hCorrelation)})`);
+  if (llmCorrelation !== null) {
+    console.log(`  LLM-as-Judge:    ${llmCorrelation.toFixed(3)} (${getCorrelationQuality(llmCorrelation)})`);
+  }
+  console.log('');
+  console.log('%cInterpretation:', 'font-weight: bold;');
+  console.log('  > 0.7: Strong correlation (scores predict success)');
+  console.log('  0.4-0.7: Moderate correlation');
+  console.log('  < 0.4: Weak correlation (scores unreliable)');
+  
+  if (Math.abs(hCorrelation) < 0.4) {
+    console.log('%c⚠️ WARNING: Heuristic scores have weak correlation with actual success!', 'color: #f85149; font-weight: bold;');
+  }
+  
+  return { heuristic: hCorrelation, llm: llmCorrelation, samples: rated.length };
+};
+
+function getCorrelationQuality(r) {
+  const abs = Math.abs(r);
+  if (abs > 0.7) return 'Strong ✅';
+  if (abs > 0.4) return 'Moderate ⚠️';
+  return 'Weak ❌';
+}
+
+window.hasVoted = function() {
+  const prompt = editor.value.trim();
+  if (!prompt) {
+    console.log('No prompt entered');
+    return false;
+  }
+  const voted = VotingManager.hasVoted(prompt);
+  const vote = VotingManager.getVote(prompt);
+  console.log(voted ? `Voted: ${vote.vote} at ${new Date(vote.timestamp).toLocaleString()}` : 'Not yet voted');
+  return voted;
+};
+
+window.exportValidationData = function() {
+  const votes = VotingManager.getVotes();
+  const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+  const stats = VotingManager.getStats();
+  
+  const exportData = {
+    metadata: {
+      exportedAt: new Date().toISOString(),
+      version: '1.2',
+      stats: stats
+    },
+    votes: votes,
+    validationEntries: store.entries
+  };
+  
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `promptlens-validation-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  console.log('Validation data exported to downloads');
+  return exportData;
+};
+
+window.clearValidationData = function() {
+  if (confirm('Clear ALL votes and validation data? This cannot be undone.')) {
+    VotingManager.clearAll();
+    updateVoteButtons();
+    console.log('All validation data cleared');
+  }
+};
+
+// ─────────────────────────────────────────────
+//  RESIZE HANDLE FUNCTIONALITY
+// ─────────────────────────────────────────────
+
+const resizeHandle = document.getElementById('resize-handle');
+const analysisPane = document.getElementById('analysis-pane');
+let isResizing = false;
+
+if (resizeHandle && analysisPane) {
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    resizeHandle.classList.add('resizing');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    
+    const newWidth = window.innerWidth - e.clientX;
+    const clampedWidth = Math.max(260, Math.min(newWidth, window.innerWidth * 0.45));
+    analysisPane.style.width = `${clampedWidth}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      resizeHandle.classList.remove('resizing');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+}
+
+// Initial state
+updateGoalButtons();
+updateFeedbackCounts();
+runAnalysis();
+updateVoteButtons(); // Initialize vote button states
+initOllama(); // async — updates header dot when done
+
+// ─────────────────────────────────────────────
+//  LLM-AS-JUDGE INTEGRATION WITH BIAS MITIGATION
+// ─────────────────────────────────────────────
+
+class LLMJudge {
+  constructor(config = {}) {
+    this.baseUrl = config.baseUrl || 'http://localhost:11434';
+    this.model = config.model || 'gpt-oss:20b';
+    this.temperature = config.temperature || 0.3;
+    this.numSamples = config.numSamples || 3;
+    this.available = false;
+  }
+
+  async checkAvailability() {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/tags`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+      this.available = response.ok;
+      return this.available;
+    } catch {
+      this.available = false;
+      return false;
+    }
+  }
+
+  getRubric(goal) {
+    const rubrics = {
+      efficient: {
+        name: 'Efficiency',
+        description: 'Clear, concise, actionable outputs',
+        criteria: [
+          { name: 'clarity', weight: 0.25, desc: 'Unambiguous instructions' },
+          { name: 'conciseness', weight: 0.20, desc: 'No redundancy' },
+          { name: 'specificity', weight: 0.25, desc: 'Concrete requirements' },
+          { name: 'structure', weight: 0.15, desc: 'Logical organization' },
+          { name: 'actionability', weight: 0.15, desc: 'Clear deliverables' }
+        ]
+      },
+      creative: {
+        name: 'Creativity',
+        description: 'Imaginative, engaging outputs',
+        criteria: [
+          { name: 'inspiration', weight: 0.30, desc: 'Evocative starting points' },
+          { name: 'ambiguity', weight: 0.20, desc: 'Strategic ambiguity (FEATURE not bug)' },
+          { name: 'style_guidance', weight: 0.25, desc: 'Aesthetic direction' },
+          { name: 'constraint_balance', weight: 0.15, desc: 'Constraints enable creativity' },
+          { name: 'originality_potential', weight: 0.10, desc: 'Room for surprise' }
+        ]
+      },
+      programmatic: {
+        name: 'Programmatic',
+        description: 'Code generation accuracy',
+        criteria: [
+          { name: 'language_clarity', weight: 0.25, desc: 'Language/framework specified' },
+          { name: 'io_spec', weight: 0.25, desc: 'Input/output defined' },
+          { name: 'requirements', weight: 0.25, desc: 'Functional requirements' },
+          { name: 'edge_cases', weight: 0.15, desc: 'Error handling' },
+          { name: 'testability', weight: 0.10, desc: 'Verification method' }
+        ]
+      },
+      bugfixing: {
+        name: 'Bug Fixing',
+        description: 'Debug and error resolution',
+        criteria: [
+          { name: 'error_context', weight: 0.30, desc: 'Error message provided' },
+          { name: 'reproduction', weight: 0.25, desc: 'Steps to reproduce' },
+          { name: 'environment', weight: 0.20, desc: 'System details' },
+          { name: 'expected_behavior', weight: 0.15, desc: 'Expected vs actual' },
+          { name: 'attempted_fixes', weight: 0.10, desc: 'What was tried' }
+        ]
+      },
+      general: {
+        name: 'General',
+        description: 'Balanced evaluation',
+        criteria: [
+          { name: 'clarity', weight: 0.30, desc: 'Understandable instructions' },
+          { name: 'specificity', weight: 0.25, desc: 'Concrete details' },
+          { name: 'context', weight: 0.20, desc: 'Relevant background' },
+          { name: 'format', weight: 0.15, desc: 'Output guidance' },
+          { name: 'scope', weight: 0.10, desc: 'Clear boundaries' }
+        ]
+      }
+    };
+    return rubrics[goal] || rubrics.general;
+  }
+
+  async evaluatePrompt(prompt, goal = 'general') {
+    if (!this.available) {
+      throw new Error('Ollama not available');
+    }
+
+    const rubric = this.getRubric(goal);
+    const evalPrompt = this.buildEvaluationPrompt(prompt, rubric, goal);
+    
+    showOllamaStatus('Analyzing with LLM-as-Judge...', 'pending');
+    
+    try {
+      const samples = await this.getMultipleSamples(evalPrompt);
+      const aggregated = this.aggregateScores(samples);
+      
+      showOllamaStatus('Analysis complete', 'success');
+      return aggregated;
+    } catch (e) {
+      showOllamaStatus(`Error: ${e.message}`, 'error');
+      throw e;
+    }
+  }
+
+  buildEvaluationPrompt(prompt, rubric, goal) {
+    const criteriaText = rubric.criteria.map((c, i) => 
+      `${i + 1}. ${c.name} (${Math.round(c.weight * 100)}%): ${c.desc}`
+    ).join('\n');
+
+    return `You are an expert prompt engineer. Evaluate this prompt for ${rubric.name.toLowerCase()}.
+
+## Prompt:
+"""
+${prompt}
+"""
+
+## Evaluation Criteria:
+${criteriaText}
+
+## Instructions:
+1. Analyze each criterion (1-10 scale, 10=excellent)
+2. Provide brief reasoning
+3. Suggest 2 specific improvements
+
+## Response Format (JSON only):
+{
+  "reasoning": "Brief analysis",
+  "criteria": {${rubric.criteria.map(c => `"${c.name}": {"score": N, "justification": "..."}`).join(', ')}},
+  "overall_score": 75,
+  "improvements": ["...", "..."]
+}`;
+  }
+
+  async getMultipleSamples(prompt) {
+    const samples = [];
+    for (let i = 0; i < this.numSamples; i++) {
+      try {
+        const response = await this.callOllama(prompt);
+        const parsed = this.parseResponse(response);
+        if (parsed) samples.push(parsed);
+      } catch (e) {
+        console.warn(`Sample ${i + 1} failed:`, e);
+      }
+    }
+    return samples;
+  }
+
+  async callOllama(prompt) {
+    const response = await fetch(`${this.baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: (typeof selectedModel !== 'undefined' && selectedModel) ? selectedModel : this.model,
+        prompt: prompt,
+        stream: false,
+        options: { temperature: this.temperature, num_predict: 1500 }
+      }),
+      signal: AbortSignal.timeout(60000)
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return data.response;
+  }
+
+  parseResponse(response) {
+    try {
+      const jsonMatch = response.match(/```json\n?([\s\S]*?)\n?```/) || 
+                        response.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : response;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.warn('Parse failed:', e);
+      return null;
+    }
+  }
+
+  aggregateScores(samples) {
+    if (samples.length === 0) return null;
+    if (samples.length === 1) {
+      return { scores: samples[0], confidence: 'low', variance: 0 };
+    }
+
+    const overallScores = samples.map(s => s.overall_score).filter(s => typeof s === 'number');
+    const mean = overallScores.reduce((a, b) => a + b, 0) / overallScores.length;
+    const variance = overallScores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / overallScores.length;
+    
+    let confidence = 'low';
+    if (variance < 25) confidence = 'high';
+    else if (variance < 100) confidence = 'medium';
+
+    return {
+      scores: samples[0],
+      overall: Math.round(mean),
+      range: [Math.min(...overallScores), Math.max(...overallScores)],
+      confidence,
+      variance: Math.round(variance),
+      sampleCount: samples.length
+    };
+  }
+}
+
+// Initialize LLM Judge
+const llmJudge = new LLMJudge();
+
+// Helper function for Ollama status updates
+function showOllamaStatus(message, type = 'info') {
+  const statusEl = document.getElementById('ollama-status');
+  if (!statusEl) return;
+  
+  statusEl.textContent = message;
+  statusEl.style.display = 'block';
+  
+  const colors = {
+    info: 'var(--text-muted)',
+    pending: 'var(--accent)',
+    success: '#3fb950',
+    error: '#f85149'
+  };
+  
+  statusEl.style.color = colors[type] || colors.info;
+}
+
+// Voting state management - one vote per prompt hash
+const VotingManager = {
+  storageKey: 'promptlens_votes',
+  
+  getPromptHash(prompt) {
+    // Simple hash for prompt identification
+    let hash = 0;
+    const str = prompt.toLowerCase().trim().replace(/\s+/g, ' ');
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString(36);
+  },
+  
+  getVotes() {
+    try {
+      return JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+    } catch {
+      return {};
+    }
+  },
+  
+  hasVoted(prompt) {
+    const hash = this.getPromptHash(prompt);
+    const votes = this.getVotes();
+    return votes[hash] !== undefined;
+  },
+  
+  getVote(prompt) {
+    const hash = this.getPromptHash(prompt);
+    const votes = this.getVotes();
+    return votes[hash] || null;
+  },
+  
+  recordVote(prompt, voteType, scores = {}) {
+    const hash = this.getPromptHash(prompt);
+    const votes = this.getVotes();
+    
+    votes[hash] = {
+      vote: voteType, // 'up' or 'down'
+      timestamp: Date.now(),
+      promptPreview: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+      scores: scores
+    };
+    
+    localStorage.setItem(this.storageKey, JSON.stringify(votes));
+    
+    // Also record in validation store for correlation analysis
+    this.recordForValidation(prompt, voteType, scores);
+    
+    return votes[hash];
+  },
+  
+  recordForValidation(prompt, voteType, scores) {
+    const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+    
+    const entry = {
+      id: Date.now().toString(36),
+      timestamp: Date.now(),
+      promptHash: this.getPromptHash(prompt),
+      prompt: prompt,
+      goal: getPrimaryGoal(),
+      heuristicScore: scores.heuristic || currentScoreData?.score || 0,
+      llmScore: scores.llm || null,
+      userRating: voteType === 'up' ? 1 : -1,
+      validated: true
+    };
+    
+    store.entries.push(entry);
+    localStorage.setItem('promptlens_validation', JSON.stringify(store));
+  },
+  
+  getStats() {
+    const votes = this.getVotes();
+    const entries = Object.values(votes);
+    const upvotes = entries.filter(v => v.vote === 'up').length;
+    const downvotes = entries.filter(v => v.vote === 'down').length;
+    
+    return {
+      total: entries.length,
+      upvotes,
+      downvotes,
+      agreement: entries.length > 0 ? (upvotes / entries.length * 100).toFixed(1) : 0
+    };
+  },
+  
+  clearAll() {
+    localStorage.removeItem(this.storageKey);
+    localStorage.removeItem('promptlens_validation');
+  }
+};
+
+votingManagerReady = true;
+
+// Current prompt tracking for vote state
+let currentPromptHash = null;
+
+// Update feedback buttons to include LLM-as-Judge
+function updateFeedbackSection() {
+  const ollamaBtn = document.getElementById('feedback-ollama');
+  
+  if (ollamaBtn) {
+    // Mark the button so the existing addEventListener knows to defer to this handler
+    ollamaBtn.dataset.judgeMode = 'true';
+    ollamaBtn.onclick = async (e) => {
+      e.stopImmediatePropagation(); // prevent the addEventListener handler from also firing
+      const prompt = editor.value.trim();
+      if (!prompt) return;
+
+      const ollamaResult = document.getElementById('ollama-result');
+
+      ollamaBtn.disabled = true;
+      ollamaBtn.textContent = '🧠 Analyzing...';
+
+      try {
+        const result = await llmJudge.evaluatePrompt(prompt, getPrimaryGoal());
+        if (!result) throw new Error('All analysis samples failed — check console for details');
+        displayLLMResult(result, ollamaResult, prompt);
+      } catch (e) {
+        ollamaResult.innerHTML = `<div style="color: var(--filler-underline);">Error: ${e.message}</div>`;
+        ollamaResult.style.display = 'block';
+      } finally {
+        ollamaBtn.disabled = false;
+        ollamaBtn.textContent = '🧠 Judge';
+      }
+    };
+  }
+  
+  // Update vote button states based on current prompt
+  updateVoteButtons();
+}
+
+function updateVoteButtons() {
+  const prompt = editor.value.trim();
+  if (!prompt) return;
+  if (!votingManagerReady) return; // VotingManager const not yet initialized
+
+  currentPromptHash = VotingManager.getPromptHash(prompt);
+  const existingVote = VotingManager.getVote(prompt);
+  
+  // Update the main feedback buttons
+  const upBtn = document.getElementById('feedback-up');
+  const downBtn = document.getElementById('feedback-down');
+  
+  if (upBtn && downBtn) {
+    // Reset styles
+    upBtn.style.opacity = '1';
+    downBtn.style.opacity = '1';
+    upBtn.style.background = '';
+    downBtn.style.background = '';
+    upBtn.innerHTML = '👍 <span style="font-size: 10px; opacity: 0.7;"></span>';
+    downBtn.innerHTML = '👎 <span style="font-size: 10px; opacity: 0.7;"></span>';
+    
+    if (existingVote) {
+      // Show voted state
+      if (existingVote.vote === 'up') {
+        upBtn.style.background = 'rgba(63, 185, 80, 0.3)';
+        upBtn.style.borderColor = '#3fb950';
+        upBtn.innerHTML = '👍 <span style="font-size: 10px;">Voted</span>';
+        downBtn.style.opacity = '0.4';
+        downBtn.disabled = true;
+      } else {
+        downBtn.style.background = 'rgba(248, 81, 73, 0.3)';
+        downBtn.style.borderColor = '#f85149';
+        downBtn.innerHTML = '👎 <span style="font-size: 10px;">Voted</span>';
+        upBtn.style.opacity = '0.4';
+        upBtn.disabled = true;
+      }
+    } else {
+      // Reset to clickable state
+      upBtn.disabled = false;
+      downBtn.disabled = false;
+      upBtn.onclick = () => recordVote('up');
+      downBtn.onclick = () => recordVote('down');
+    }
+  }
+  
+  // Update stats display
+  updateVoteStats();
+}
+
+function recordVote(voteType) {
+  const prompt = editor.value.trim();
+  if (!prompt) return;
+  
+  if (VotingManager.hasVoted(prompt)) {
+    alert('You have already voted on this prompt. Each prompt can only be voted once.');
+    return;
+  }
+  
+  const scores = {
+    heuristic: currentScoreData?.score || 0,
+    goal: getPrimaryGoal()
+  };
+  
+  VotingManager.recordVote(prompt, voteType, scores);
+  
+  // Show confirmation
+  const voteText = voteType === 'up' ? '👍 Upvoted' : '👎 Downvoted';
+  console.log(`${voteText} - Prompt recorded for validation`);
+  
+  // Update UI
+  updateVoteButtons();
+  updateValidationDisplay();
+}
+
+function updateVoteStats() {
+  const stats = VotingManager.getStats();
+  const statsEl = document.getElementById('vote-stats');
+  
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <span style="color: #3fb950;">👍 ${stats.upvotes}</span>
+      <span style="color: var(--text-muted); margin: 0 4px;">/</span>
+      <span style="color: #f85149;">👎 ${stats.downvotes}</span>
+      <span style="color: var(--text-muted); margin-left: 8px;">(${stats.total} total)</span>
+    `;
+  }
+}
+
+function displayLLMResult(result, container, prompt) {
+  const rubric = llmJudge.getRubric(getPrimaryGoal());
+  const criteriaHtml = rubric.criteria.map(c => {
+    const score = result.scores?.criteria?.[c.name]?.score || '?';
+    const justification = result.scores?.criteria?.[c.name]?.justification || '';
+    return `
+      <div style="margin-bottom: 8px; padding: 8px; background: var(--surface-2); border-radius: 4px;">
+        <div style="display: flex; justify-content: space-between;">
+          <strong style="font-size: 11px; text-transform: capitalize;">${c.name.replace(/_/g, ' ')}</strong>
+          <span style="color: var(--accent);">${score}/10</span>
+        </div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">${justification}</div>
+      </div>
+    `;
+  }).join('');
+
+  const improvements = result.scores?.improvements || [];
+  const improvementsHtml = improvements.length > 0 
+    ? `<ul style="margin: 8px 0; padding-left: 16px; font-size: 11px;">${improvements.map(i => `<li>${i}</li>`).join('')}</ul>`
+    : '<div style="font-size: 11px; color: var(--text-muted);">No suggestions provided</div>';
+  
+  // Check if already voted on this prompt
+  const existingVote = VotingManager.getVote(prompt);
+  const voteButtonsHtml = existingVote 
+    ? `<div style="padding: 8px; background: ${existingVote.vote === 'up' ? 'rgba(63,185,80,0.2)' : 'rgba(248,81,73,0.2)'}; border-radius: 4px; text-align: center; font-size: 11px;">You ${existingVote.vote === 'up' ? '👍 upvoted' : '👎 downvoted'} this prompt</div>`
+    : `<div style="display: flex; gap: 8px;">
+        <button onclick="recordLLMVote('up', ${result.overall})" style="flex: 1; background: rgba(63,185,80,0.2); border: 1px solid #3fb950; color: #3fb950; padding: 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">👍 Accurate</button>
+        <button onclick="recordLLMVote('down', ${result.overall})" style="flex: 1; background: rgba(248,81,73,0.2); border: 1px solid #f85149; color: #f85149; padding: 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">👎 Inaccurate</button>
+      </div>`;
+
+  container.innerHTML = `
+    <div style="background: var(--surface-2); border-radius: 8px; padding: 12px; margin-top: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <strong style="font-size: 12px;">🤖 LLM-as-Judge Evaluation</strong>
+        <span style="font-size: 10px; padding: 2px 8px; border-radius: 4px; background: ${result.confidence === 'high' ? 'rgba(63,185,80,0.2)' : result.confidence === 'medium' ? 'rgba(255,166,0,0.2)' : 'rgba(248,81,73,0.2)'}; color: ${result.confidence === 'high' ? '#3fb950' : result.confidence === 'medium' ? '#f0883e' : '#f85149'};">${result.confidence.toUpperCase()} CONFIDENCE</span>
+      </div>
+      
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <div style="flex: 1; text-align: center; padding: 8px; background: var(--surface); border-radius: 6px;">
+          <div style="font-size: 24px; font-weight: 700; color: var(--accent);">${result.overall}</div>
+          <div style="font-size: 9px; color: var(--text-muted);">OVERALL</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 8px; background: var(--surface); border-radius: 6px;">
+          <div style="font-size: 24px; font-weight: 700; color: var(--text-muted);">${result.range?.[0]}-${result.range?.[1]}</div>
+          <div style="font-size: 9px; color: var(--text-muted);">RANGE (${result.sampleCount} samples)</div>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px;">CRITERIA BREAKDOWN</div>
+        ${criteriaHtml}
+      </div>
+      
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px;">SUGGESTED IMPROVEMENTS</div>
+        ${improvementsHtml}
+      </div>
+      
+      <div style="padding-top: 12px; border-top: 1px solid var(--border);">
+        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px;">Was this evaluation accurate?</div>
+        ${voteButtonsHtml}
+      </div>
+    </div>
+  `;
+  container.style.display = 'block';
+}
+
+// Global function for LLM vote buttons
+// Make voting functions globally accessible
+window.recordLLMVote = function(voteType, llmScore) {
+  const prompt = editor.value.trim();
+  if (!prompt) return;
+  
+  if (VotingManager.hasVoted(prompt)) {
+    alert('You have already voted on this prompt.');
+    return;
+  }
+  
+  const scores = {
+    heuristic: currentScoreData?.score || 0,
+    llm: llmScore,
+    goal: getPrimaryGoal()
+  };
+  
+  VotingManager.recordVote(prompt, voteType, scores);
+  
+  // Refresh display to show voted state
+  const ollamaResult = document.getElementById('ollama-result');
+  const result = { overall: llmScore }; // Simplified for refresh
+  displayLLMResult(result, ollamaResult, prompt);
+  
+  // Also update main buttons
+  updateVoteButtons();
+  updateValidationDisplay();
+};
+
+// Legacy function for backward compatibility
+window.recordLLMComparison = function(llmScore) {
+  recordLLMVote('up', llmScore);
+}
+
+// Show correlation between heuristic and LLM scores
+function updateValidationDisplay() {
+  const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+  const rated = store.entries.filter(e => e.userRating !== null);
+  
+  if (rated.length < 5) {
+    console.log(`Need ${5 - rated.length} more ratings to calculate correlation`);
+    return;
+  }
+  
+  // Calculate correlation
+  const hScores = rated.map(e => e.heuristicScore);
+  const lScores = rated.map(e => e.llmScore);
+  const correlation = calculatePearson(hScores, lScores);
+  
+  console.log('=== VALIDATION REPORT ===');
+  console.log(`Samples: ${rated.length}`);
+  console.log(`Heuristic vs LLM correlation: ${correlation.toFixed(3)}`);
+  console.log(`Quality: ${Math.abs(correlation) > 0.7 ? 'Strong' : Math.abs(correlation) > 0.4 ? 'Moderate' : 'Weak'}`);
+  
+  if (Math.abs(correlation) < 0.4) {
+    console.warn('⚠️ LOW CORRELATION: Your heuristic scores may not align with LLM-as-Judge');
+  }
+}
+
+function calculatePearson(x, y) {
+  const n = x.length;
+  const sumX = x.reduce((a, b) => a + b, 0);
+  const sumY = y.reduce((a, b) => a + b, 0);
+  const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+  const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+  const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+  
+  const numerator = n * sumXY - sumX * sumY;
+  const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+  
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+// Add validation demo button
+function addValidationDemoButton() {
+  const header = document.querySelector('header');
+  const btn = document.createElement('button');
+  btn.className = 'compare-btn';
+  btn.textContent = '🔬 Why Validate?';
+  btn.title = 'See why structure alone is insufficient';
+  btn.onclick = () => {
+    window.open('validation-demonstration.html', '_blank', 'width=1200,height=800');
+  };
+  header.appendChild(btn);
+}
+
+// Initialize
+llmJudge.checkAvailability().then(available => {
+  console.log('LLM-as-Judge:', available ? 'Available' : 'Not available');
+  if (available) {
+    updateFeedbackSection();
+    addValidationDemoButton();
+  }
+});
+
+// Make current prompt accessible to demo window
+Object.defineProperty(window, 'currentPrompt', {
+  get: () => editor.value.trim()
+});
+
+console.log('LLM-as-Judge integration loaded');
+console.log('Commands:');
+console.log('  llmJudge.evaluatePrompt(prompt, goal) - Get LLM evaluation');
+console.log('  updateValidationDisplay() - Show correlation report');
+</script>
+</body>
+</html>
