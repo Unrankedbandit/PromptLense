@@ -3034,7 +3034,13 @@ window.voteStats = function() {
 };
 
 window.validationReport = function() {
-  const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+  let store;
+  try {
+    const parsed = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+    store = (parsed !== null && typeof parsed === 'object' && Array.isArray(parsed.entries)) ? parsed : { entries: [] };
+  } catch {
+    store = { entries: [] };
+  }
   const rated = store.entries.filter(e => e.userRating !== null);
   
   if (rated.length < 5) {
@@ -3098,7 +3104,13 @@ window.hasVoted = function() {
 
 window.exportValidationData = function() {
   const votes = VotingManager.getVotes();
-  const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+  let store;
+  try {
+    const parsed = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+    store = (parsed !== null && typeof parsed === 'object' && Array.isArray(parsed.entries)) ? parsed : { entries: [] };
+  } catch {
+    store = { entries: [] };
+  }
   const stats = VotingManager.getStats();
   
   const exportData = {
@@ -3467,7 +3479,13 @@ const VotingManager = {
   },
   
   recordForValidation(prompt, voteType, scores) {
-    const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+    let store;
+    try {
+      const parsed = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+      store = (parsed !== null && typeof parsed === 'object' && Array.isArray(parsed.entries)) ? parsed : { entries: [] };
+    } catch {
+      store = { entries: [] };
+    }
     
     const entry = {
       id: Date.now().toString(36),
@@ -3736,7 +3754,13 @@ window.recordLLMComparison = function(llmScore) {
 
 // Show correlation between heuristic and LLM scores
 function updateValidationDisplay() {
-  const store = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+  let store;
+  try {
+    const parsed = JSON.parse(localStorage.getItem('promptlens_validation') || '{"entries":[]}');
+    store = (parsed !== null && typeof parsed === 'object' && Array.isArray(parsed.entries)) ? parsed : { entries: [] };
+  } catch {
+    store = { entries: [] };
+  }
   const rated = store.entries.filter(e => e.userRating !== null);
   
   if (rated.length < 5) {

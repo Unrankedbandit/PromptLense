@@ -22,14 +22,13 @@ PromptLense is a browser-based tool that analyzes LLM prompts in real-time, prov
   - **Bug Fix** - Focus on debugging and error correction
   - **Goal-Oriented** - Emphasize task completion clarity
 
-### Learning & Feedback
-- **👍/👎 Feedback System** - Train the model with your preferences
-- **Confidence Intervals** - See uncertainty ranges (e.g., "75 (68-82)")
-- **Online Learning** - Model adapts every 30 seconds based on your feedback
-- **Local Storage** - All data stays on your device
+### Feedback & Data
+- **👍/👎 Feedback System** - One vote per prompt, tracked per session with full validation history
+- **Local Storage** - All data stays on your device with quota management and structure validation
 
 ### AI Integration (Optional)
-- **Ollama Support** - Optional AI-powered analysis via local Ollama instance
+- **Ollama Support** - Optional AI-powered analysis via local Ollama instance with explicit model load/unload controls
+- **Model Memory Info** - Shows model size in GB vs your system RAM before loading
 - **Bias Mitigation** - Position swap and multi-sample aggregation for fair judging
 
 ## 🚀 Quick Start
