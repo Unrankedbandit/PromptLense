@@ -1196,6 +1196,26 @@ const RULES = {
         /\b(must|shall|only|exactly|no more than|at most|at least|between|limited to|requires?|restricted to|maximum|minimum)\b/gi,
         /\b(do not|don'?t|never|avoid|exclude|without)\b/gi,
         /\b(always|every single|all(?!\s+right))\b/gi,
+        // Preservation / outcome constraints
+        /\b(preserved?|untouched|unchanged|remain(?:s|ing)?|intact|unmodified|unaffected|keep(?:ing)? (?:the )?original)\b/gi,
+        /\b(output (?:will|should|must) be|result(?:ing)? in|produces?|combination of|composed? of|merged? with)\b/gi,
+      ]
+    },
+    {
+      type: 'high-impact', priority: 5,
+      label: 'Task verb',
+      tooltip: 'Core action the model is being asked to perform — highest impact token',
+      patterns: [
+        /\b(generat(?:e|ing|ed)|creat(?:e|ing|ed)|insert(?:ing|ed)?|replac(?:e|ing|ed)|remov(?:e|ing|ed)|add(?:ing)?|updat(?:e|ing|ed))\b/gi,
+        /\b(analyz(?:e|ing|ed)|summariz(?:e|ing|ed)|translat(?:e|ing|ed)|rewr(?:ite|iting|itten)|convert(?:ing|ed)?|transform(?:ing|ed)?)\b/gi,
+        /\b(extract(?:ing|ed)?|pars(?:e|ing|ed)|detect(?:ing|ed)?|classif(?:y|ying|ied)|predict(?:ing|ed)?|evaluat(?:e|ing|ed))\b/gi,
+        /\b(build(?:ing)?|implement(?:ing|ed)?|design(?:ing|ed)?|construct(?:ing|ed)?|assembl(?:e|ing|ed)|compil(?:e|ing|ed))\b/gi,
+        /\b(explain(?:ing)?|describ(?:e|ing|ed)|show(?:ing)?|demonstrat(?:e|ing|ed)|illustrat(?:e|ing|ed)|outlin(?:e|ing|ed))\b/gi,
+        /\b(fix(?:ing)?|debug(?:ging)?|refactor(?:ing)?|optimiz(?:e|ing|ed)?|improv(?:e|ing|ed)|enhanc(?:e|ing|ed))\b/gi,
+        /\b(compar(?:e|ing|ed)|rank(?:ing|ed)?|sort(?:ing|ed)?|filter(?:ing|ed)?|search(?:ing|ed)?|find(?:ing)?)\b/gi,
+        /\b(merg(?:e|ing|ed)|split(?:ting)?|combin(?:e|ing|ed)|join(?:ing)?|concat(?:enat(?:e|ing|ed))?|append(?:ing|ed)?)\b/gi,
+        /\b(apply(?:ing)?|apply|execut(?:e|ing|ed)|run(?:ning)?|process(?:ing|ed)?|handl(?:e|ing|ed)|manag(?:e|ing|ed))\b/gi,
+        /\b(render(?:ing|ed)?|draw(?:ing)?|paint(?:ing|ed)?|crop(?:ping|ped)?|resize(?:d|ing)?|mask(?:ing|ed)?|blend(?:ing|ed)?)\b/gi,
       ]
     },
     {
@@ -1215,6 +1235,35 @@ const RULES = {
       patterns: [
         /\b\d+(\.\d+)?\s*(%|px|ms|s\b|kb|mb|gb|words?|lines?|char(?:acter)?s?|items?|steps?|results?|examples?|tokens?)\b/gi,
         /\b(first|second|third|top\s+\d+|\d+(?:st|nd|rd|th))\b/gi,
+      ]
+    },
+    {
+      type: 'context', priority: 3,
+      label: 'Subject / domain context',
+      tooltip: 'Background info and domain terms that help the model understand scope',
+      patterns: [
+        // Role / persona assignments
+        /\byou are\b/gi,
+        /\bact(?:ing)? as\b/gi,
+        /\byour (job|role|task|responsibility|goal) is\b/gi,
+        /\bi (am|'m) (?:a |an )?\w+/gi,
+        // Software & creative tools
+        /\b(photoshop|illustrator|lightroom|premiere|after ?effects|indesign|figma|sketch|canva|gimp|inkscape|blender|cinema ?4d|houdini|maya|substance|unreal|unity)\b/gi,
+        /\b(comfy ?ui|stable ?diffusion|midjourney|dall-?e|automatic1111|invokeai|a1111)\b/gi,
+        /\b(notion|obsidian|roam|logseq|confluence|jira|linear|github|gitlab|slack|discord|zapier|airtable)\b/gi,
+        // General domain / workflow nouns
+        /\b(workflow|pipeline|process|procedure|step[s]?|system|framework|approach|method)\b/gi,
+        /\b(image[s]?|photo[s]?|picture[s]?|video[s]?|frame[s]?|clip[s]?|audio|music|sound)\b/gi,
+        /\b(mask(?:ed|ing)?|layer[s]?|pixel[s]?|canvas|viewport|scene|object[s]?|region|area|section|segment)\b/gi,
+        /\b(node[s]?|graph|network|model|module|component|plugin|extension|tool|widget)\b/gi,
+        /\b(document|file[s]?|folder|directory|database|table|schema|record|entry|dataset)\b/gi,
+        /\b(user[s]?|customer[s]?|client[s]?|team|company|product|project|service|platform|application|app)\b/gi,
+        // Causal / conditional connectors that signal reasoning structure
+        /\b(this way|so that|in order to|as a result|which means|because|therefore|thus|this means|such that)\b/gi,
+        /\b(where we|when we|if we|once we|after we|before we)\b/gi,
+        // Referential / relational terms
+        /\b(original|previous|current|existing|new|updated|final|resulting)\b/gi,
+        /\b(based on|according to|using|via|through|from|within|inside|outside|between|across)\b/gi,
       ]
     },
   ],
@@ -1349,6 +1398,12 @@ const RULES = {
       tooltip: 'Core subject matter — good anchoring context',
       patterns: [
         /\b(about|set in|featuring|protagonist|character|setting|world|universe|story|poem|song|essay|narrative)\b/gi,
+        /\byou are\b/gi,
+        /\bact(?:ing)? as\b/gi,
+        /\bi (am|'m) (?:a |an )?\w+/gi,
+        /\b(generat(?:e|ing|ed)|creat(?:e|ing|ed)|write|writing|written|paint(?:ing|ed)?|compos(?:e|ing|ed)|craft(?:ing|ed)?|design(?:ing|ed)?)\b/gi,
+        /\b(image[s]?|photo[s]?|illustration[s]?|painting[s]?|artwork?|piece|scene|portrait|landscape|composition)\b/gi,
+        /\b(workflow|process|based on|using|from|within|this way|so that)\b/gi,
       ]
     },
     {
@@ -1438,6 +1493,22 @@ const RULES = {
         /O\([n\d\s\*\^log\s]+\)/g,
         /\b(thread[-\s]safe|immutable|functional|pure function|side[-\s]effect[-\s]free)\b/gi,
         /\b(unit test|tdd|test coverage|error handling|edge case|null check|input validation)\b/gi,
+        /\b(preserved?|untouched|unchanged|intact|unmodified|backward[s]?[-\s]compat)\b/gi,
+      ]
+    },
+    {
+      type: 'context', priority: 3,
+      label: 'Task / domain context',
+      tooltip: 'Background about what the code needs to do',
+      patterns: [
+        /\byou are\b/gi,
+        /\bact(?:ing)? as\b/gi,
+        /\bi (am|'m) (?:a |an )?\w+/gi,
+        /\b(workflow|pipeline|process|system|module|service|component|feature|endpoint|api)\b/gi,
+        /\b(given|provided|incoming|existing|current|new|expected|desired)\b/gi,
+        /\b(generat(?:e|ing|ed)|creat(?:e|ing|ed)|build(?:ing)?|implement(?:ing|ed)?|develop(?:ing|ed)?)\b/gi,
+        /\b(parse[sd]?|pars(?:e|ing)|extract(?:ing|ed)?|transform(?:ing|ed)?|convert(?:ing|ed)?|process(?:ing|ed)?)\b/gi,
+        /\b(based on|according to|using|via|from|within)\b/gi,
       ]
     },
     {
@@ -1494,6 +1565,11 @@ const RULES = {
         /\b(version|os|platform|browser|environment)\b/gi,
         /\b(windows|macos|linux|ubuntu|debian|chrome|firefox|safari|node|python)\s+\d/gi,
         /\b(local|staging|production|dev|prod)\b/gi,
+        // Tool / software context in bug reports
+        /\b(photoshop|figma|blender|vscode|intellij|xcode|android studio|webpack|docker|kubernetes)\b/gi,
+        /\b(workflow|pipeline|process|component|module|service|api|endpoint)\b/gi,
+        /\byou are\b/gi,
+        /\bact(?:ing)? as\b/gi,
       ]
     },
     {
@@ -1504,6 +1580,7 @@ const RULES = {
         /\b(when i|if i|after (i |doing )|before (i |doing ))\b/gi,
         /\b(steps? to reproduce|to reproduce|happens when)\b/gi,
         /\b\d+\.\s+[A-Z]/gm,
+        /\b(generat(?:e|ing|ed)|creat(?:e|ing|ed)|insert(?:ing|ed)?|submit(?:ting|ted)?|click(?:ing|ed)?|upload(?:ing|ed)?)\b/gi,
       ]
     },
     {
@@ -1558,6 +1635,12 @@ const RULES = {
         /\b(audience|user[s]?|customer[s]?|client[s]?|stakeholder[s]?|manager|executive|team)\b/gi,
         /\b(technical|non-technical|beginner|expert|senior|junior)\b/gi,
         /\bfor\s+(the\s+)?(team|company|client|product|project)\b/gi,
+        /\byou are\b/gi,
+        /\bact(?:ing)? as\b/gi,
+        /\bi (am|'m) (?:a |an )?\w+/gi,
+        /\b(workflow|pipeline|process|system|platform|product|project|service)\b/gi,
+        /\b(generat(?:e|ing|ed)|creat(?:e|ing|ed)|build(?:ing)?|implement(?:ing|ed)?|deliver(?:ing|ed)?|deploy(?:ing|ed)?)\b/gi,
+        /\b(based on|according to|using|via|from|within|across)\b/gi,
       ]
     },
     {
